@@ -112,7 +112,7 @@ textarea.copy{height:160px;font:12px/1.3 ui-monospace,monospace}
   <label class="ysl" title="Ano de trabalho">Ano <select id="ysel" aria-label="Ano de trabalho"></select></label><span class="pill off" id="sync">Conectando…</span>
 </header>
 <main id="view"></main>
-<footer><a href="./" style="color:inherit">Voltar ao portal</a> · <a href="#" id="sairb" style="color:inherit">Sair</a> · desenvolvido por <a href="#sobre" id="ftsobre" style="color:inherit;font-weight:600;text-decoration:underline;cursor:pointer">Fernando Yogi</a></footer>
+<footer><a href="./?portal=1" id="portalb" style="color:inherit">Voltar ao portal</a> · <a href="#" id="sairb" style="color:inherit">Sair</a> · desenvolvido por <a href="#sobre" id="ftsobre" style="color:inherit;font-weight:600;text-decoration:underline;cursor:pointer">Fernando Yogi</a></footer>
 </div>
 </div>
 <div class="modalbg" id="mbg"><div class="modal" id="modal"></div></div>
@@ -1388,6 +1388,7 @@ onAuthStateChanged(auth, async (u) => {
     if (!p.exists()) return volta();
     const perfil = p.data().perfil;
     window.__ro = perfil !== "admin" && perfil !== "coordenador";
+    if (perfil !== "admin") { const pb = $g("portalb"); if (pb && pb.nextSibling) pb.nextSibling.remove(); if (pb) pb.remove(); }
     if (iniciado) return;
     iniciado = true;
     const nome = (n) => "agenda_" + n;

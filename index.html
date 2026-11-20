@@ -508,6 +508,11 @@ async function iniciarAcesso(u) {
     return telaFalha("Não foi possível verificar seu acesso agora. " + msgErro(e));
   }
   if (!perfil || !PERFIS[perfil.perfil]) return telaSemAcesso();
+  // Coordenador e Consulta vão direto ao painel; o Administrador fica no portal (gerencia usuários)
+  const meus = MODULOS.filter((m) => (m.perfis || []).includes(perfil.perfil));
+  if (perfil.perfil !== "admin" && meus.length === 1 && !/[?&]portal\b/.test(location.search)) {
+    return location.replace(meus[0].url);
+  }
   telaApp("inicio");
 }
 
