@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>RH| APOSENTADORIA - Acesso</title>
+<title>RH | APOSENTADORIA - Acesso</title>
 <style>
   :root {
     --bg: #eef2f5;
@@ -145,7 +145,7 @@ const DESCRICAO = {
    Cada item aparece na tela inicial só para os perfis listados.
    Exemplo: { titulo: "Painel 5W2H", descricao: "Demandas e projetos", url: "https://...", perfis: ["admin","coordenador","consulta"] } */
 const MODULOS = [
-  { titulo: "RH| APOSENTADORIA", descricao: "Agendamento de atendimentos do Núcleo Regional de Educação de Londrina.", url: "agenda.html", perfis: ["admin", "coordenador", "consulta"] },
+  { titulo: "RH | APOSENTADORIA", descricao: "Agendamento de atendimentos do Núcleo Regional de Educação de Londrina.", url: "agenda.html", perfis: ["admin", "coordenador", "consulta"] },
 ];
 
 /* ============ Firebase ============ */
@@ -188,7 +188,7 @@ function aviso(el, tipo, texto) {
 const marcaHtml = (sub) => `
   <div class="marca-logo">
     <img src="logo.png" alt="Núcleo Regional de Educação de Londrina">
-    <h1>RH| APOSENTADORIA</h1><small>${esc(sub)}</small>
+    <h1>RH | APOSENTADORIA</h1><small>${esc(sub)}</small>
   </div>`;
 
 const rodape = `<footer>desenvolvido por Fernando Yogi</footer>`;
@@ -362,7 +362,7 @@ function telaApp(aba) {
   const admin = perfil.perfil === "admin";
   root.innerHTML = `
   <header class="topo">
-    <div class="marca"><img class="logo-topo" src="logo.png" alt="Núcleo Regional de Educação de Londrina"><div><h1>RH| APOSENTADORIA</h1></div></div>
+    <div class="marca"><img class="logo-topo" src="logo.png" alt="Núcleo Regional de Educação de Londrina"><div><h1>RH | APOSENTADORIA</h1></div></div>
     <div class="usuario">
       <span class="nome">${esc(perfil.nome)}</span>
       <span class="selo selo-${esc(perfil.perfil)}">${esc(PERFIS[perfil.perfil])}</span>
