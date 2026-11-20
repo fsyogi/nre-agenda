@@ -208,6 +208,19 @@ function confirmar(titulo, texto, rotulo) {
   });
 }
 
+function avisoNaoLiberado() {
+  const f = document.createElement("div");
+  f.className = "fundo";
+  f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>Usuário não liberado</h2>
+    <p>Este e-mail não está liberado para acesso ao sistema. Nenhum e-mail de confirmação foi enviado.</p>
+    <p>Entre em contato com o administrador <b>Fernando Yogi</b> para solicitar a liberação:</p>
+    <p style="line-height:1.9">Telefone / WhatsApp: <a href="https://wa.me/5543999922930" target="_blank" rel="noopener">(43) 99992-2930</a><br>
+    E-mail: <a href="mailto:fsyogi@gmail.com">fsyogi@gmail.com</a></p>
+    <div class="acoes-modal"><button class="btn" data-r="1">Entendi</button></div></div>`;
+  f.addEventListener("click", (ev) => { if (ev.target === f || (ev.target.getAttribute && ev.target.getAttribute("data-r") !== null)) f.remove(); });
+  document.body.appendChild(f);
+}
+
 /* ============ Telas ============ */
 function telaCarregando(texto) {
   root.innerHTML = `<div class="centro"><div class="caixa">${marcaHtml("Aguarde")}<p class="suave">${esc(texto)}</p></div></div>`;
@@ -277,7 +290,8 @@ function telaAuth(modo) {
           console.error(e2);
           try { await deleteUser(cred.user); } catch (_) {}
           btn.disabled = false;
-          return aviso(msg, "erro", "Não foi possível criar o usuário. Confirme se o e-mail foi liberado pelo administrador e se o nome de usuário está livre.");
+          if (e2 && e2.code === "permission-denied") { aviso(msg, "erro", "Este e-mail não está liberado para acesso."); avisoNaoLiberado(); return; }
+          return aviso(msg, "erro", "Não foi possível criar o usuário. Tente novamente em instantes.");
         }
         await updateProfile(cred.user, { displayName: nome });
         await sendEmailVerification(cred.user);
