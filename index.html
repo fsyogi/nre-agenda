@@ -33,6 +33,11 @@
   .caixa { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--linha); border-radius: var(--raio); padding: 28px 26px; box-shadow: 0 8px 28px rgba(15, 40, 55, .08); }
   .marca { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
   .marca .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primaria); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px; }
+  .marca-logo { text-align: center; margin-bottom: 20px; }
+  .marca-logo img { width: 100%; max-width: 260px; height: auto; display: block; margin: 0 auto 10px; }
+  .marca-logo h1 { font-size: 18px; margin: 0; line-height: 1.2; }
+  .marca-logo small { color: var(--suave); display: block; font-size: 12.5px; margin-top: 2px; }
+  .logo-topo { height: 40px; width: auto; display: block; }
   .marca h1 { font-size: 18px; margin: 0; line-height: 1.2; }
   .marca small { color: var(--suave); display: block; font-size: 12.5px; }
   h2 { font-size: 17px; margin: 0 0 14px; }
@@ -181,9 +186,9 @@ function aviso(el, tipo, texto) {
 }
 
 const marcaHtml = (sub) => `
-  <div class="marca">
-    <div class="logo">A</div>
-    <div><h1>NRE Agenda</h1><small>${esc(sub)}</small></div>
+  <div class="marca-logo">
+    <img src="logo.png" alt="Núcleo Regional de Educação de Londrina">
+    <h1>NRE Agenda</h1><small>${esc(sub)}</small>
   </div>`;
 
 const rodape = `<footer>desenvolvido por Fernando Yogi</footer>`;
@@ -335,7 +340,7 @@ function telaApp(aba) {
   const admin = perfil.perfil === "admin";
   root.innerHTML = `
   <header class="topo">
-    <div class="marca"><div class="logo">A</div><div><h1>NRE Agenda</h1></div></div>
+    <div class="marca"><img class="logo-topo" src="logo.png" alt="Núcleo Regional de Educação de Londrina"><div><h1>NRE Agenda</h1></div></div>
     <div class="usuario">
       <span class="nome">${esc(perfil.nome)}</span>
       <span class="selo selo-${esc(perfil.perfil)}">${esc(PERFIS[perfil.perfil])}</span>
