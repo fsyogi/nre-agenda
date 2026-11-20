@@ -118,7 +118,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  updateProfile, sendEmailVerification, sendPasswordResetEmail, signOut
+  updateProfile, deleteUser, sendEmailVerification, sendPasswordResetEmail, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp
@@ -166,9 +166,9 @@ function limparListeners() { desinscrever.forEach((f) => { try { f(); } catch (_
 function msgErro(e) {
   const c = (e && e.code) || "";
   const mapa = {
-    "auth/invalid-credential": "E-mail ou senha incorretos.",
-    "auth/wrong-password": "E-mail ou senha incorretos.",
-    "auth/user-not-found": "E-mail ou senha incorretos.",
+    "auth/invalid-credential": "Usuário ou senha incorretos.",
+    "auth/wrong-password": "Usuário ou senha incorretos.",
+    "auth/user-not-found": "Usuário ou senha incorretos.",
     "auth/invalid-email": "O e-mail informado não é válido.",
     "auth/email-already-in-use": "Já existe uma conta com este e-mail. Use Entrar ou recupere a senha.",
     "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
@@ -217,14 +217,15 @@ function telaAuth(modo) {
   const entrar = modo === "entrar", criar = modo === "criar", recuperar = modo === "recuperar";
   root.innerHTML = `
   <div class="centro"><div class="caixa">
-    ${marcaHtml("Entre com seu e-mail e senha")}
+    ${marcaHtml("Entre com seu usuário e senha")}
     ${recuperar ? "" : `<div class="abas-login">
       <button type="button" data-modo="entrar" class="${entrar ? "ativa" : ""}">Entrar</button>
       <button type="button" data-modo="criar" class="${criar ? "ativa" : ""}">Criar conta</button></div>`}
     <form id="f-auth" novalidate>
-      ${recuperar ? `<h2>Recuperar senha</h2><p class="suave">Informe o e-mail da conta. Enviaremos um link para criar uma nova senha.</p>` : ""}
+      ${recuperar ? `<h2>Recuperar senha</h2><p class="suave">Informe seu usuário ou o e-mail da conta. Enviaremos um link para criar uma nova senha.</p>` : ""}
       ${criar ? `<div class="campo"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" required></div>` : ""}
-      <div class="campo"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required></div>
+      ${criar ? `<div class="campo"><label for="usuario">Nome de usuário</label><input id="usuario" autocomplete="username" autocapitalize="none" placeholder="ex.: maria.pezente" required><small class="suave">Use letras minúsculas, números, ponto, hífen ou sublinhado (de 3 a 30 caracteres). É com ele que você vai entrar.</small></div>` : ""}
+      <div class="campo"><label for="email">${criar ? "E-mail (liberado pelo administrador)" : "Usuário ou e-mail"}</label><input id="email" ${criar ? 'type="email" autocomplete="email"' : 'type="text" autocomplete="username" autocapitalize="none"'} required></div>
       ${recuperar ? "" : `<div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="${criar ? "new-password" : "current-password"}" required></div>`}
       ${criar ? `<div class="campo"><label for="senha2">Repita a senha</label><input id="senha2" type="password" autocomplete="new-password" required></div>
         <p class="suave">Só e-mails liberados pelo administrador conseguem acesso ao sistema.</p>` : ""}
@@ -244,10 +245,20 @@ function telaAuth(modo) {
 
   form.addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    const email = form.email.value.trim().toLowerCase();
-    if (!emailValido(email)) return aviso(msg, "erro", "Informe um e-mail válido.");
+    let email = form.email.value.trim().toLowerCase();
+    if (criar && !emailValido(email)) return aviso(msg, "erro", "Informe um e-mail válido.");
+    if (!criar && !email) return aviso(msg, "erro", "Informe seu usuário ou e-mail.");
     btn.disabled = true;
     try {
+      // Usuário no lugar do e-mail: descobre o e-mail da conta
+      if (!criar && !email.includes("@")) {
+        const l = await getDoc(doc(db, "logins", email));
+        if (!l.exists()) {
+          if (recuperar) { aviso(msg, "ok", "Se este usuário tiver conta, o link de recuperação foi enviado. Confira também o spam."); btn.disabled = false; return; }
+          btn.disabled = false; return aviso(msg, "erro", "Usuário ou senha incorretos.");
+        }
+        email = l.data().email;
+      }
       if (entrar) {
         if (!form.senha.value) { btn.disabled = false; return aviso(msg, "erro", "Informe a senha."); }
         await signInWithEmailAndPassword(auth, email, form.senha.value);
@@ -256,7 +267,18 @@ function telaAuth(modo) {
         if (nome.length < 3) { btn.disabled = false; return aviso(msg, "erro", "Informe seu nome completo."); }
         if (form.senha.value.length < 6) { btn.disabled = false; return aviso(msg, "erro", "A senha precisa ter pelo menos 6 caracteres."); }
         if (form.senha.value !== form.senha2.value) { btn.disabled = false; return aviso(msg, "erro", "As senhas não conferem."); }
+        const usuarioNome = form.usuario.value.trim().toLowerCase();
+        if (!/^[a-z0-9._-]{3,30}$/.test(usuarioNome)) { btn.disabled = false; return aviso(msg, "erro", "Usuário inválido. Use de 3 a 30 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."); }
+        if ((await getDoc(doc(db, "logins", usuarioNome))).exists()) { btn.disabled = false; return aviso(msg, "erro", "Este nome de usuário já está em uso. Escolha outro."); }
         const cred = await createUserWithEmailAndPassword(auth, email, form.senha.value);
+        try {
+          await setDoc(doc(db, "logins", usuarioNome), { email, uid: cred.user.uid });
+        } catch (e2) {
+          console.error(e2);
+          try { await deleteUser(cred.user); } catch (_) {}
+          btn.disabled = false;
+          return aviso(msg, "erro", "Não foi possível criar o usuário. Confirme se o e-mail foi liberado pelo administrador e se o nome de usuário está livre.");
+        }
         await updateProfile(cred.user, { displayName: nome });
         await sendEmailVerification(cred.user);
         telaVerificar(true);

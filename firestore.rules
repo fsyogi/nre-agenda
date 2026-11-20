@@ -46,6 +46,18 @@ service cloud.firestore {
       allow delete: if ehAdmin();
     }
 
+    // Nome de usuário -> e-mail (leitura só por consulta direta; criação só por e-mail liberado)
+    match /logins/{usuario} {
+      allow get: if true;
+      allow create: if request.auth != null
+        && usuario.matches('^[a-z0-9._-]{3,30}$')
+        && request.resource.data.keys().hasOnly(['email', 'uid'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email.lower()
+        && exists(/databases/$(database)/documents/autorizados/$(request.auth.token.email.lower()));
+      allow delete: if ehAdmin();
+    }
+
     // Dados do NRE Agenda: todos com acesso leem, admin e coordenador editam
     match /agenda_ag/{id}   { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_canc/{id} { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
