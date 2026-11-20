@@ -114,7 +114,7 @@ textarea.copy{height:160px;font:12px/1.3 ui-monospace,monospace}
   <label class="ysl" title="Ano de trabalho">Ano <select id="ysel" aria-label="Ano de trabalho"></select></label><span class="pill off" id="sync">Conectando…</span>
 </header>
 <main id="view"></main>
-<footer><a href="./?portal=1" id="portalb" style="color:inherit">Voltar ao portal</a> · desenvolvido por <a href="#sobre" id="ftsobre" style="color:inherit;font-weight:600;text-decoration:underline;cursor:pointer">Fernando Yogi</a></footer>
+<footer><span id="portalw"><a href="./?portal=1" id="portalb" style="color:inherit">Voltar ao portal</a> · </span>desenvolvido por <a href="#sobre" id="ftsobre" style="color:inherit;font-weight:600;text-decoration:underline;cursor:pointer">Fernando Yogi</a></footer>
 </div>
 </div>
 <div class="modalbg" id="mbg"><div class="modal" id="modal"></div></div>
@@ -1427,7 +1427,7 @@ onAuthStateChanged(auth, async (u) => {
     window.__ro = perfil !== "admin" && perfil !== "coordenador";
     window.__user = p.data().nome || u.email;
     try { const q = await getDocs(query(collection(fdb, "logins"), where("uid", "==", u.uid))); if (!q.empty) window.__user = q.docs[0].id; } catch (_) {}
-    if (perfil !== "admin") { const pb = $g("portalb"); if (pb && pb.nextSibling) pb.nextSibling.remove(); if (pb) pb.remove(); }
+    if (perfil !== "admin") { const pw = $g("portalw"); if (pw) pw.remove(); }
     if (iniciado) return;
     iniciado = true;
     const nome = (n) => "agenda_" + n;
