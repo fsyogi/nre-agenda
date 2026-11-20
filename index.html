@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>NRE Agenda - Acesso</title>
+<style>
+  :root {
+    --bg: #eef2f5;
+    --card: #ffffff;
+    --tinta: #16222b;
+    --suave: #5b6b77;
+    --linha: #d9e1e7;
+    --primaria: #0f5c7a;
+    --primaria-esc: #0b4760;
+    --perigo: #b3261e;
+    --ok: #1b6e3c;
+    --raio: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--tinta);
+    line-height: 1.45;
+  }
+  #root { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Telas centrais (login, verificação, erro) */
+  .centro { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  .caixa { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--linha); border-radius: var(--raio); padding: 28px 26px; box-shadow: 0 8px 28px rgba(15, 40, 55, .08); }
+  .marca { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .marca .logo { width: 40px; height: 40px; border-radius: 10px; background: var(--primaria); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 18px; }
+  .marca h1 { font-size: 18px; margin: 0; line-height: 1.2; }
+  .marca small { color: var(--suave); display: block; font-size: 12.5px; }
+  h2 { font-size: 17px; margin: 0 0 14px; }
+  p { margin: 0 0 12px; }
+  .suave { color: var(--suave); font-size: 14px; }
+
+  .abas-login { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; margin-bottom: 18px; }
+  .abas-login button { border: 0; background: transparent; padding: 9px; border-radius: 8px; font: inherit; font-weight: 600; color: var(--suave); cursor: pointer; }
+  .abas-login button.ativa { background: #fff; color: var(--primaria); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  label { display: block; font-size: 13.5px; font-weight: 600; margin: 0 0 5px; }
+  input, select { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--linha); border-radius: 8px; background: #fff; color: var(--tinta); }
+  input:focus, select:focus, button:focus-visible { outline: 3px solid rgba(15, 92, 122, .28); border-color: var(--primaria); }
+  .campo { margin-bottom: 14px; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 11px 16px; background: var(--primaria); color: #fff; cursor: pointer; width: 100%; }
+  .btn:hover { background: var(--primaria-esc); }
+  .btn:disabled { opacity: .6; cursor: wait; }
+  .btn-sec { width: auto; padding: 8px 14px; background: #fff; color: var(--primaria); border: 1px solid var(--linha); }
+  .btn-sec:hover { background: var(--bg); }
+  .btn-perigo { width: auto; padding: 6px 10px; background: #fff; color: var(--perigo); border: 1px solid #e3b9b6; font-size: 13px; }
+  .btn-perigo:hover { background: #fdf1f0; }
+  .btn-link { background: none; border: 0; color: var(--primaria); font: inherit; font-size: 14px; cursor: pointer; padding: 0; text-decoration: underline; }
+
+  .msg { font-size: 14px; border-radius: 8px; padding: 10px 12px; margin: 12px 0 0; display: none; }
+  .msg.erro { display: block; background: #fdf1f0; color: var(--perigo); border: 1px solid #f0c9c6; }
+  .msg.ok { display: block; background: #eef8f1; color: var(--ok); border: 1px solid #c6e6d0; }
+  .msg.info { display: block; background: #eef4f8; color: var(--primaria-esc); border: 1px solid #cfe0ea; }
+  .linha-links { display: flex; justify-content: space-between; margin-top: 14px; }
+  .acoes { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+  /* Aplicação */
+  .topo { background: var(--card); border-bottom: 1px solid var(--linha); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .topo .marca { margin: 0; }
+  .usuario { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .usuario .nome { font-weight: 600; }
+  .selo { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .selo-admin { background: #e7e2f8; color: #46318f; }
+  .selo-coordenador { background: #dff1ea; color: #1b6e3c; }
+  .selo-consulta { background: #e5edf3; color: #2f5671; }
+  .abas { display: flex; gap: 4px; padding: 10px 20px 0; background: var(--card); border-bottom: 1px solid var(--linha); }
+  .abas button { border: 0; background: transparent; font: inherit; font-weight: 600; color: var(--suave); padding: 10px 14px; border-bottom: 3px solid transparent; cursor: pointer; }
+  .abas button.ativa { color: var(--primaria); border-bottom-color: var(--primaria); }
+  main { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 22px 16px 40px; }
+  .card { background: var(--card); border: 1px solid var(--linha); border-radius: var(--raio); padding: 20px; margin-bottom: 18px; }
+  .grade { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr auto; gap: 12px; align-items: end; }
+  .grade .btn { width: auto; }
+  .modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .modulo { display: block; border: 1px solid var(--linha); border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; background: #fff; }
+  .modulo:hover { border-color: var(--primaria); box-shadow: 0 2px 10px rgba(15, 92, 122, .12); }
+  .modulo strong { display: block; color: var(--primaria); margin-bottom: 4px; }
+  .rolagem { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--linha); vertical-align: middle; }
+  th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); }
+  td select { padding: 6px 8px; min-width: 140px; }
+  .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .tag-ok { background: #eef8f1; color: var(--ok); }
+  .tag-espera { background: #fff6e0; color: #8a5a00; }
+  footer { text-align: center; color: var(--suave); font-size: 12.5px; padding: 14px; }
+
+  .fundo { position: fixed; inset: 0; background: rgba(10, 25, 35, .5); display: grid; place-items: center; padding: 16px; z-index: 10; }
+  .modal { background: #fff; border-radius: var(--raio); padding: 22px; max-width: 420px; width: 100%; }
+  .modal .acoes-modal { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .modal .btn { width: auto; }
+
+  @media (max-width: 760px) {
+    .grade { grid-template-columns: 1fr; }
+    .grade .btn { width: 100%; }
+    .topo { padding: 10px 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  updateProfile, sendEmailVerification, sendPasswordResetEmail, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ============ Configuração ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAelqHRND1PbEkq6F_--tuA1ayqmGB2nC8",
+  authDomain: "nre-agenda.firebaseapp.com",
+  projectId: "nre-agenda",
+  storageBucket: "nre-agenda.firebasestorage.app",
+  messagingSenderId: "912885535163",
+  appId: "1:912885535163:web:7b8d409269e12b6e8b749e"
+};
+
+const PERFIS = { admin: "Administrador", coordenador: "Coordenador", consulta: "Consulta" };
+const DESCRICAO = {
+  admin: "Gerencia usuários e perfis e tem acesso a tudo que o Coordenador faz.",
+  coordenador: "Cadastra e edita as informações do sistema.",
+  consulta: "Visualiza as informações do sistema."
+};
+
+/* Painéis e sistemas que ficam atrás do login.
+   Cada item aparece na tela inicial só para os perfis listados.
+   Exemplo: { titulo: "Painel 5W2H", descricao: "Demandas e projetos", url: "https://...", perfis: ["admin","coordenador","consulta"] } */
+const MODULOS = [
+  { titulo: "NRE Agenda", descricao: "Agendamento de atendimentos do Núcleo Regional de Educação de Londrina.", url: "agenda.html", perfis: ["admin", "coordenador", "consulta"] },
+];
+
+/* ============ Firebase ============ */
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ============ Utilidades ============ */
+const root = document.getElementById("root");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const emailValido = (e) => /^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/.test(e);
+let usuario = null;   // usuário do Firebase Auth
+let perfil = null;    // { uid, nome, email, perfil }
+let desinscrever = []; // listeners do Firestore
+
+function limparListeners() { desinscrever.forEach((f) => { try { f(); } catch (_) {} }); desinscrever = []; }
+
+function msgErro(e) {
+  const c = (e && e.code) || "";
+  const mapa = {
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/wrong-password": "E-mail ou senha incorretos.",
+    "auth/user-not-found": "E-mail ou senha incorretos.",
+    "auth/invalid-email": "O e-mail informado não é válido.",
+    "auth/email-already-in-use": "Já existe uma conta com este e-mail. Use Entrar ou recupere a senha.",
+    "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+    "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente de novo.",
+    "auth/network-request-failed": "Sem conexão com a internet. Tente novamente.",
+    "auth/user-disabled": "Esta conta foi desativada.",
+    "permission-denied": "Você não tem permissão para esta ação."
+  };
+  return mapa[c] || "Não foi possível concluir. Tente novamente.";
+}
+
+function aviso(el, tipo, texto) {
+  el.className = "msg " + tipo;
+  el.textContent = texto;
+}
+
+const marcaHtml = (sub) => `
+  <div class="marca">
+    <div class="logo">A</div>
+    <div><h1>NRE Agenda</h1><small>${esc(sub)}</small></div>
+  </div>`;
+
+const rodape = `<footer>desenvolvido por Fernando Yogi</footer>`;
+
+function confirmar(titulo, texto, rotulo) {
+  return new Promise((resolve) => {
+    const f = document.createElement("div");
+    f.className = "fundo";
+    f.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>${esc(titulo)}</h2><p>${esc(texto)}</p>
+      <div class="acoes-modal"><button class="btn btn-sec" data-r="0">Cancelar</button><button class="btn" data-r="1">${esc(rotulo)}</button></div></div>`;
+    f.addEventListener("click", (ev) => {
+      const r = ev.target.getAttribute && ev.target.getAttribute("data-r");
+      if (r === null || r === undefined) { if (ev.target === f) { f.remove(); resolve(false); } return; }
+      f.remove(); resolve(r === "1");
+    });
+    document.body.appendChild(f);
+  });
+}
+
+/* ============ Telas ============ */
+function telaCarregando(texto) {
+  root.innerHTML = `<div class="centro"><div class="caixa">${marcaHtml("Aguarde")}<p class="suave">${esc(texto)}</p></div></div>`;
+}
+
+function telaAuth(modo) {
+  const entrar = modo === "entrar", criar = modo === "criar", recuperar = modo === "recuperar";
+  root.innerHTML = `
+  <div class="centro"><div class="caixa">
+    ${marcaHtml("Entre com seu e-mail e senha")}
+    ${recuperar ? "" : `<div class="abas-login">
+      <button type="button" data-modo="entrar" class="${entrar ? "ativa" : ""}">Entrar</button>
+      <button type="button" data-modo="criar" class="${criar ? "ativa" : ""}">Criar conta</button></div>`}
+    <form id="f-auth" novalidate>
+      ${recuperar ? `<h2>Recuperar senha</h2><p class="suave">Informe o e-mail da conta. Enviaremos um link para criar uma nova senha.</p>` : ""}
+      ${criar ? `<div class="campo"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" required></div>` : ""}
+      <div class="campo"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required></div>
+      ${recuperar ? "" : `<div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="${criar ? "new-password" : "current-password"}" required></div>`}
+      ${criar ? `<div class="campo"><label for="senha2">Repita a senha</label><input id="senha2" type="password" autocomplete="new-password" required></div>
+        <p class="suave">Só e-mails liberados pelo administrador conseguem acesso ao sistema.</p>` : ""}
+      <button class="btn" id="enviar" type="submit">${entrar ? "Entrar" : criar ? "Criar conta" : "Enviar link"}</button>
+      <div id="msg" class="msg" role="alert"></div>
+    </form>
+    <div class="linha-links">
+      ${entrar ? `<button type="button" class="btn-link" data-modo="recuperar">Esqueci minha senha</button><span></span>` : ""}
+      ${recuperar ? `<button type="button" class="btn-link" data-modo="entrar">Voltar ao login</button><span></span>` : ""}
+    </div>
+  </div></div>${rodape}`;
+
+  root.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => telaAuth(b.dataset.modo)));
+  const form = root.querySelector("#f-auth");
+  const msg = root.querySelector("#msg");
+  const btn = root.querySelector("#enviar");
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const email = form.email.value.trim().toLowerCase();
+    if (!emailValido(email)) return aviso(msg, "erro", "Informe um e-mail válido.");
+    btn.disabled = true;
+    try {
+      if (entrar) {
+        if (!form.senha.value) { btn.disabled = false; return aviso(msg, "erro", "Informe a senha."); }
+        await signInWithEmailAndPassword(auth, email, form.senha.value);
+      } else if (criar) {
+        const nome = form.nome.value.trim();
+        if (nome.length < 3) { btn.disabled = false; return aviso(msg, "erro", "Informe seu nome completo."); }
+        if (form.senha.value.length < 6) { btn.disabled = false; return aviso(msg, "erro", "A senha precisa ter pelo menos 6 caracteres."); }
+        if (form.senha.value !== form.senha2.value) { btn.disabled = false; return aviso(msg, "erro", "As senhas não conferem."); }
+        const cred = await createUserWithEmailAndPassword(auth, email, form.senha.value);
+        await updateProfile(cred.user, { displayName: nome });
+        await sendEmailVerification(cred.user);
+        telaVerificar(true);
+      } else {
+        await sendPasswordResetEmail(auth, email);
+        aviso(msg, "ok", "Se este e-mail tiver conta, o link de recuperação foi enviado. Confira também o spam.");
+        btn.disabled = false;
+      }
+    } catch (e) {
+      console.error(e);
+      if (recuperar && e.code === "auth/user-not-found") {
+        aviso(msg, "ok", "Se este e-mail tiver conta, o link de recuperação foi enviado. Confira também o spam.");
+      } else aviso(msg, "erro", msgErro(e));
+      btn.disabled = false;
+    }
+  });
+}
+
+function telaVerificar(recemEnviado) {
+  const email = usuario ? usuario.email : (auth.currentUser && auth.currentUser.email) || "";
+  root.innerHTML = `
+  <div class="centro"><div class="caixa">
+    ${marcaHtml("Confirme seu e-mail")}
+    <h2>Quase lá</h2>
+    <p>${recemEnviado ? "Enviamos" : "Precisamos confirmar"} o e-mail <strong>${esc(email)}</strong>.
+       Abra a mensagem, clique no link de confirmação e volte aqui.</p>
+    <p class="suave">Não achou? Olhe a caixa de spam.</p>
+    <div class="acoes">
+      <button class="btn" id="ja">Já confirmei</button>
+      <button class="btn btn-sec" id="reenviar" style="width:100%">Reenviar e-mail</button>
+      <button class="btn-link" id="sair">Sair</button>
+    </div>
+    <div id="msg" class="msg" role="alert"></div>
+  </div></div>${rodape}`;
+  const msg = root.querySelector("#msg");
+  root.querySelector("#sair").onclick = () => signOut(auth);
+  root.querySelector("#reenviar").onclick = async () => {
+    try { await sendEmailVerification(auth.currentUser); aviso(msg, "ok", "E-mail reenviado."); }
+    catch (e) { aviso(msg, "erro", msgErro(e)); }
+  };
+  root.querySelector("#ja").onclick = async () => {
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        await auth.currentUser.getIdToken(true);
+        iniciarAcesso(auth.currentUser);
+      } else aviso(msg, "info", "Ainda não consta como confirmado. Clique no link do e-mail e tente de novo.");
+    } catch (e) { aviso(msg, "erro", msgErro(e)); }
+  };
+}
+
+function telaSemAcesso() {
+  root.innerHTML = `
+  <div class="centro"><div class="caixa">
+    ${marcaHtml("Acesso não liberado")}
+    <h2>Seu e-mail ainda não foi liberado</h2>
+    <p>A conta <strong>${esc(usuario.email)}</strong> foi criada, mas o administrador ainda não liberou o acesso a este sistema.</p>
+    <p class="suave">Peça a liberação ao administrador e depois toque em Verificar de novo.</p>
+    <div class="acoes">
+      <button class="btn" id="de-novo">Verificar de novo</button>
+      <button class="btn-link" id="sair">Sair</button>
+    </div>
+  </div></div>${rodape}`;
+  root.querySelector("#sair").onclick = () => signOut(auth);
+  root.querySelector("#de-novo").onclick = () => iniciarAcesso(auth.currentUser);
+}
+
+function telaFalha(texto) {
+  root.innerHTML = `
+  <div class="centro"><div class="caixa">
+    ${marcaHtml("Algo deu errado")}
+    <p>${esc(texto)}</p>
+    <div class="acoes"><button class="btn" id="de-novo">Tentar de novo</button><button class="btn-link" id="sair">Sair</button></div>
+  </div></div>${rodape}`;
+  root.querySelector("#sair").onclick = () => signOut(auth);
+  root.querySelector("#de-novo").onclick = () => iniciarAcesso(auth.currentUser);
+}
+
+function telaApp(aba) {
+  limparListeners();
+  const admin = perfil.perfil === "admin";
+  root.innerHTML = `
+  <header class="topo">
+    <div class="marca"><div class="logo">A</div><div><h1>NRE Agenda</h1></div></div>
+    <div class="usuario">
+      <span class="nome">${esc(perfil.nome)}</span>
+      <span class="selo selo-${esc(perfil.perfil)}">${esc(PERFIS[perfil.perfil])}</span>
+      <button class="btn btn-sec" id="sair">Sair</button>
+    </div>
+  </header>
+  <nav class="abas">
+    <button data-aba="inicio" class="${aba === "inicio" ? "ativa" : ""}">Início</button>
+    ${admin ? `<button data-aba="usuarios" class="${aba === "usuarios" ? "ativa" : ""}">Usuários</button>` : ""}
+  </nav>
+  <main id="conteudo"></main>
+  ${rodape}`;
+  root.querySelector("#sair").onclick = () => signOut(auth);
+  root.querySelectorAll("[data-aba]").forEach((b) => b.addEventListener("click", () => telaApp(b.dataset.aba)));
+  if (aba === "usuarios" && admin) viewUsuarios(); else viewInicio();
+}
+
+function viewInicio() {
+  const c = document.getElementById("conteudo");
+  const meus = MODULOS.filter((m) => (m.perfis || []).includes(perfil.perfil));
+  const vazio = perfil.perfil === "admin"
+    ? "Nenhum painel conectado ainda. Cadastre os painéis na lista MODULOS do arquivo da página."
+    : "Nenhum painel disponível para o seu perfil no momento.";
+  c.innerHTML = `
+    <section class="card">
+      <h2>Olá, ${esc(perfil.nome.split(" ")[0])}</h2>
+      <p>Seu perfil é <strong>${esc(PERFIS[perfil.perfil])}</strong>. ${esc(DESCRICAO[perfil.perfil])}</p>
+    </section>
+    <section class="card">
+      <h2>Painéis</h2>
+      ${meus.length ? `<div class="modulos">${meus.map((m) => `
+        <a class="modulo" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">
+          <strong>${esc(m.titulo)}</strong><span class="suave">${esc(m.descricao || "")}</span></a>`).join("")}</div>`
+        : `<p class="suave">${esc(vazio)}</p>`}
+    </section>`;
+}
+
+function viewUsuarios() {
+  const c = document.getElementById("conteudo");
+  c.innerHTML = `
+    <section class="card">
+      <h2>Liberar novo e-mail</h2>
+      <form id="f-liberar" class="grade" novalidate>
+        <div><label for="l-nome">Nome (opcional)</label><input id="l-nome" autocomplete="off"></div>
+        <div><label for="l-email">E-mail</label><input id="l-email" type="email" autocomplete="off" required></div>
+        <div><label for="l-perfil">Perfil</label>
+          <select id="l-perfil">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === "consulta" ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+        <button class="btn" type="submit">Liberar</button>
+      </form>
+      <div id="msg-liberar" class="msg" role="alert"></div>
+    </section>
+
+    <section class="card">
+      <h2>Usuários e e-mails liberados</h2>
+      <div class="rolagem" id="tabela"><p class="suave">Carregando…</p></div>
+    </section>`;
+
+
+  let aut = new Map(), usr = new Map();
+  const tabela = c.querySelector("#tabela");
+  const msgL = c.querySelector("#msg-liberar");
+
+  function linhas() {
+    const mapa = new Map();
+    aut.forEach((d, email) => mapa.set(email, { email, nome: d.nome || "", perfil: d.perfil, uid: null, cadastrado: false, noAut: true }));
+    usr.forEach((u) => {
+      const email = String(u.email || "").toLowerCase();
+      const base = mapa.get(email) || { email, noAut: false };
+      mapa.set(email, { ...base, email, nome: u.nome || base.nome || "", perfil: u.perfil, uid: u.uid, cadastrado: true });
+    });
+    return [...mapa.values()].sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, "pt-BR"));
+  }
+
+  function desenhar() {
+    const rs = linhas();
+    if (!rs.length) { tabela.innerHTML = `<p class="suave">Nenhum usuário ainda.</p>`; return; }
+    tabela.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>
+      ${rs.map((r) => {
+        const eu = r.uid === perfil.uid;
+        return `<tr data-email="${esc(r.email)}" data-uid="${esc(r.uid || "")}">
+          <td>${esc(r.nome || "—")}${eu ? ' <span class="suave">(você)</span>' : ""}</td>
+          <td>${esc(r.email)}</td>
+          <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
+            ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
+          <td><span class="tag ${r.cadastrado ? "tag-ok" : "tag-espera"}">${r.cadastrado ? "Cadastrado" : "Aguardando cadastro"}</span></td>
+          <td>${eu ? "" : `<button class="btn btn-perigo" data-acao="remover">Remover acesso</button>`}</td></tr>`;
+      }).join("")}</tbody></table>`;
+  }
+
+  const falha = (e) => { console.error(e); tabela.innerHTML = `<p class="msg erro" style="display:block">${esc(msgErro(e))}</p>`; };
+  desinscrever.push(onSnapshot(collection(db, "autorizados"), (s) => { aut = new Map(s.docs.map((d) => [d.id, d.data()])); desenhar(); }, falha));
+  desinscrever.push(onSnapshot(collection(db, "usuarios"), (s) => { usr = new Map(s.docs.map((d) => [d.id, { uid: d.id, ...d.data() }])); desenhar(); }, falha));
+
+  c.querySelector("#f-liberar").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    const email = f["l-email"].value.trim().toLowerCase();
+    if (!emailValido(email)) return aviso(msgL, "erro", "Informe um e-mail válido.");
+    if ([...usr.values()].some((u) => String(u.email).toLowerCase() === email))
+      return aviso(msgL, "info", "Este e-mail já está cadastrado. Para mudar o acesso, altere o perfil na tabela.");
+    try {
+      await setDoc(doc(db, "autorizados", email), {
+        perfil: f["l-perfil"].value,
+        nome: f["l-nome"].value.trim(),
+        criadoPor: perfil.email,
+        criadoEm: serverTimestamp()
+      });
+      f.reset();
+      aviso(msgL, "ok", "E-mail liberado. A pessoa já pode criar a conta com ele.");
+    } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); }
+  });
+
+  tabela.addEventListener("change", async (ev) => {
+    const sel = ev.target.closest("select[data-acao=perfil]");
+    if (!sel) return;
+    const tr = sel.closest("tr");
+    const email = tr.dataset.email, uid = tr.dataset.uid;
+    try {
+      const b = writeBatch(db);
+      if (uid) b.update(doc(db, "usuarios", uid), { perfil: sel.value });
+      b.set(doc(db, "autorizados", email), { perfil: sel.value }, { merge: true });
+      await b.commit();
+      aviso(msgL, "ok", "Perfil atualizado.");
+    } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); desenhar(); }
+  });
+
+  tabela.addEventListener("click", async (ev) => {
+    const bt = ev.target.closest("button[data-acao=remover]");
+    if (!bt) return;
+    const tr = bt.closest("tr");
+    const email = tr.dataset.email, uid = tr.dataset.uid;
+    const ok = await confirmar("Remover acesso", `A pessoa ${email} perde o acesso ao sistema e precisará ser liberada de novo para voltar.`, "Remover");
+    if (!ok) return;
+    try {
+      const b = writeBatch(db);
+      if (uid) b.delete(doc(db, "usuarios", uid));
+      if (aut.has(email)) b.delete(doc(db, "autorizados", email));
+      await b.commit();
+      aviso(msgL, "ok", "Acesso removido.");
+    } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); }
+  });
+}
+
+/* ============ Fluxo de acesso ============ */
+async function obterPerfil(u) {
+  const ref = doc(db, "usuarios", u.uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return { uid: u.uid, ...snap.data() };
+  const email = u.email.toLowerCase();
+  const aut = await getDoc(doc(db, "autorizados", email));
+  if (!aut.exists()) return null;
+  const dados = {
+    email,
+    nome: u.displayName || aut.data().nome || email,
+    perfil: aut.data().perfil,
+    criadoEm: serverTimestamp()
+  };
+  await setDoc(ref, dados);
+  return { uid: u.uid, ...dados };
+}
+
+async function iniciarAcesso(u) {
+  limparListeners();
+  usuario = u;
+  telaCarregando("Verificando seu acesso…");
+  try {
+    perfil = await obterPerfil(u);
+  } catch (e) {
+    console.error(e);
+    return telaFalha("Não foi possível verificar seu acesso agora. " + msgErro(e));
+  }
+  if (!perfil || !PERFIS[perfil.perfil]) return telaSemAcesso();
+  telaApp("inicio");
+}
+
+onAuthStateChanged(auth, (u) => {
+  limparListeners();
+  usuario = u; perfil = null;
+  if (!u) return telaAuth("entrar");
+  if (!u.emailVerified) return telaVerificar(false);
+  iniciarAcesso(u);
+});
+
+telaCarregando("Carregando…");
+</script>
+</body>
+</html>
