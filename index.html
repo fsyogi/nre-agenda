@@ -226,6 +226,7 @@ function telaCarregando(texto) {
   root.innerHTML = `<div class="centro"><div class="caixa">${marcaHtml("Aguarde")}<p class="suave">${esc(texto)}</p></div></div>`;
 }
 
+let criandoConta = false; // enquanto verdadeiro, o login automático da criação não troca de tela
 function telaAuth(modo) {
   const entrar = modo === "entrar", criar = modo === "criar", recuperar = modo === "recuperar";
   root.innerHTML = `
@@ -283,18 +284,21 @@ function telaAuth(modo) {
         const usuarioNome = form.usuario.value.trim().toLowerCase();
         if (!/^[a-z0-9._-]{3,30}$/.test(usuarioNome)) { btn.disabled = false; return aviso(msg, "erro", "Usuário inválido. Use de 3 a 30 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."); }
         if ((await getDoc(doc(db, "logins", usuarioNome))).exists()) { btn.disabled = false; return aviso(msg, "erro", "Este nome de usuário já está em uso. Escolha outro."); }
+        criandoConta = true;
         const cred = await createUserWithEmailAndPassword(auth, email, form.senha.value);
         try {
           await setDoc(doc(db, "logins", usuarioNome), { email, uid: cred.user.uid });
         } catch (e2) {
           console.error(e2);
           try { await deleteUser(cred.user); } catch (_) {}
+          criandoConta = false; usuario = null;
           btn.disabled = false;
           if (e2 && e2.code === "permission-denied") { aviso(msg, "erro", "Este e-mail não está liberado para acesso."); avisoNaoLiberado(); return; }
           return aviso(msg, "erro", "Não foi possível criar o usuário. Tente novamente em instantes.");
         }
         await updateProfile(cred.user, { displayName: nome });
         await sendEmailVerification(cred.user);
+        criandoConta = false; usuario = cred.user;
         telaVerificar(true);
       } else {
         await sendPasswordResetEmail(auth, email);
@@ -303,6 +307,7 @@ function telaAuth(modo) {
       }
     } catch (e) {
       console.error(e);
+      if (criandoConta) { criandoConta = false; if (auth.currentUser) { try { await deleteUser(auth.currentUser); } catch (_) {} } }
       if (recuperar && e.code === "auth/user-not-found") {
         aviso(msg, "ok", "Se este e-mail tiver conta, o link de recuperação foi enviado. Confira também o spam.");
       } else aviso(msg, "erro", msgErro(e));
@@ -558,9 +563,10 @@ async function iniciarAcesso(u) {
 }
 
 onAuthStateChanged(auth, (u) => {
+  if (criandoConta) return;
   limparListeners();
   usuario = u; perfil = null;
-  if (!u) return telaAuth("entrar");
+  if (!u) { if (root.querySelector("#f-auth")) return; return telaAuth("entrar"); }
   if (!u.emailVerified) return telaVerificar(false);
   iniciarAcesso(u);
 });
