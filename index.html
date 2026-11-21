@@ -458,11 +458,11 @@ function viewUsuarios() {
 
   function linhas() {
     const mapa = new Map();
-    aut.forEach((d, email) => mapa.set(email, { email, nome: d.nome || "", perfil: d.perfil, uid: null, cadastrado: false, noAut: true }));
+    aut.forEach((d, email) => mapa.set(email, { email, nome: d.nome || "", perfil: d.perfil, unidade: d.unidade || "", uid: null, cadastrado: false, noAut: true }));
     usr.forEach((u) => {
       const email = String(u.email || "").toLowerCase();
       const base = mapa.get(email) || { email, noAut: false };
-      mapa.set(email, { ...base, email, nome: u.nome || base.nome || "", perfil: u.perfil, uid: u.uid, cadastrado: true });
+      mapa.set(email, { ...base, email, nome: u.nome || base.nome || "", perfil: u.perfil, unidade: u.unidade || base.unidade || "", uid: u.uid, cadastrado: true });
     });
     return [...mapa.values()].sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, "pt-BR"));
   }
