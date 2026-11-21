@@ -70,9 +70,20 @@ service cloud.firestore {
     match /agenda_canc/{id} { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_obs/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_cad/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
-    match /agenda_atd/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
+    // Atendimento: um registro existente só pode ser regravado por quem tem a mesma marca de criação (tok).
+    // Assim, dois usuários que sortearem o mesmo protocolo ao mesmo tempo não se sobrescrevem: o segundo é recusado e o sistema sorteia outro número.
+    match /agenda_atd/{id}  {
+      allow read: if temAcesso();
+      allow create: if podeEditarAgenda();
+      allow update: if podeEditarAgenda()
+        && (!('tok' in resource.data) || request.resource.data.get('tok', '') == resource.data.tok);
+      allow delete: if podeEditarAgenda();
+    }
     match /agenda_dia/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_cfg/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
-    match /agenda_log/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
+    // Logs: editores só criam; ninguém altera nem apaga, exceto o administrador
+    match /agenda_log/{id}  { allow read: if temAcesso(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
+    // Lixeira (30 dias): editores enviam o que excluem; só o administrador lê, restaura e apaga
+    match /agenda_lixo/{id} { allow read: if ehAdmin(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
   }
 }
