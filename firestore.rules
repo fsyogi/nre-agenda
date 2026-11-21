@@ -63,6 +63,7 @@ service cloud.firestore {
     match /agenda_ag/{id}   { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_canc/{id} { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_obs/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
+    match /agenda_cad/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_dia/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_cfg/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     match /agenda_log/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
