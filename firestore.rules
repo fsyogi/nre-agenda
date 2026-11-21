@@ -83,6 +83,17 @@ service cloud.firestore {
     match /agenda_cfg/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     // Logs: editores só criam; ninguém altera nem apaga, exceto o administrador
     match /agenda_log/{id}  { allow read: if temAcesso(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
+    // Anexos de PDF enviados por link (validade 30 dias): quem tem o endereço (código longo e aleatório) lê só enquanto não vence; ninguém lista; só editores criam e apagam
+    match /agenda_anexo/{id} {
+      allow get: if resource.data.exp is number && request.time.toMillis() < resource.data.exp;
+      allow create: if podeEditarAgenda()
+        && request.resource.data.keys().hasOnly(['nome', 'tam', 'tipo', 'b64', 'exp', 'dt', 'us', 'prot'])
+        && request.resource.data.tipo == 'application/pdf'
+        && request.resource.data.exp is number
+        && request.resource.data.b64 is string
+        && request.resource.data.b64.size() < 960000;
+      allow delete: if podeEditarAgenda();
+    }
     // Lixeira (30 dias): editores enviam o que excluem; só o administrador lê, restaura e apaga
     match /agenda_lixo/{id} { allow read: if ehAdmin(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
   }

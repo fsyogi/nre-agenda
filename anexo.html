@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Documento · Núcleo Regional de Educação de Londrina</title>
+<style>
+body{margin:0;font:16px/1.5 Arial,sans-serif;color:#17212b;background:#f4f6f8}
+header{background:#03313d;color:#fff;padding:14px 18px;font-weight:700}
+main{max-width:900px;margin:18px auto;padding:0 14px}
+.card{background:#fff;border:1px solid #d5dbe0;border-radius:10px;padding:16px 18px}
+h1{font-size:19px;margin:0 0 6px;color:#03313d;word-break:break-word}
+.meta{color:#555;font-size:14px;margin-bottom:12px}
+.btn{display:inline-block;background:#03313d;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:15px;cursor:pointer;text-decoration:none}
+embed,iframe{width:100%;height:75vh;border:1px solid #d5dbe0;border-radius:6px;margin-top:14px;background:#fff}
+.err{color:#9A3B1E;font-weight:700}
+.rod{margin-top:14px;color:#666;font-size:12.5px}
+</style>
+</head>
+<body>
+<header>Núcleo Regional de Educação de Londrina</header>
+<main><div class="card" id="c">Carregando o documento…</div>
+<p class="rod">Documento enviado pelo NRE Londrina. O arquivo fica disponível por tempo limitado e pode conter dados pessoais: não compartilhe este endereço.</p></main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyAelqHRND1PbEkq6F_--tuA1ayqmGB2nC8",
+  authDomain: "nre-agenda.firebaseapp.com",
+  projectId: "nre-agenda",
+  storageBucket: "nre-agenda.firebasestorage.app",
+  messagingSenderId: "912885535163",
+  appId: "1:912885535163:web:7b8d409269e12b6e8b749e"
+});
+const c = document.getElementById("c");
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+const falha = (t) => { c.innerHTML = '<div class="err">' + t + '</div><p>Peça ao NRE Londrina que envie o documento novamente.</p>'; };
+(async () => {
+  const id = new URLSearchParams(location.search).get("id") || "";
+  if (!/^[a-f0-9]{48}$/.test(id)) return falha("Endereço inválido.");
+  try {
+    const d = await getDoc(doc(getFirestore(app), "agenda_anexo", id));
+    if (!d.exists()) return falha("Documento não encontrado ou com prazo vencido.");
+    const x = d.data();
+    if (!x.b64 || (x.exp && Date.now() > x.exp)) return falha("Este documento está com o prazo vencido.");
+    const bin = atob(x.b64), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([a], { type: "application/pdf" }));
+    const ate = x.exp ? new Date(x.exp).toLocaleDateString("pt-BR") : "";
+    c.innerHTML = "<h1>" + esc(x.nome) + '</h1><div class="meta">' + Math.max(1, Math.round((x.tam || a.length) / 1024)) + " KB" + (ate ? " · disponível até " + ate : "") + '</div><a class="btn" href="' + url + '" download="' + esc(x.nome) + '">Baixar PDF</a><embed src="' + url + '" type="application/pdf">';
+  } catch (e) {
+    falha("Documento não encontrado ou com prazo vencido.");
+  }
+})();
+</script>
+</body>
+</html>
