@@ -17,6 +17,9 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.perfil == 'admin';
     }
+    function unidadeValida(u) {
+      return u in ['', 'NRE/PREV', 'NRE/RH/APOSENTADORIA'];
+    }
     function temAcesso() {
       return logado() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
     }
@@ -29,13 +32,15 @@ service cloud.firestore {
       allow read: if logado() && (request.auth.uid == uid || ehAdmin());
       allow create: if logado()
         && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['email', 'nome', 'perfil', 'criadoEm'])
+        && request.resource.data.keys().hasOnly(['email', 'nome', 'perfil', 'criadoEm', 'unidade'])
+        && unidadeValida(request.resource.data.get('unidade', ''))
         && request.resource.data.email == meuEmail()
         && exists(/databases/$(database)/documents/autorizados/$(meuEmail()))
         && request.resource.data.perfil == get(/databases/$(database)/documents/autorizados/$(meuEmail())).data.perfil;
       allow update: if ehAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['perfil', 'nome'])
-        && perfilValido(request.resource.data.perfil);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['perfil', 'nome', 'unidade'])
+        && perfilValido(request.resource.data.perfil)
+        && unidadeValida(request.resource.data.get('unidade', ''));
       allow delete: if ehAdmin() && request.auth.uid != uid;
     }
 
@@ -52,7 +57,8 @@ service cloud.firestore {
       allow list: if request.auth != null && resource.data.uid == request.auth.uid;
       allow create: if request.auth != null
         && usuario.matches('^[a-z0-9._-]{3,30}$')
-        && request.resource.data.keys().hasOnly(['email', 'uid'])
+        && request.resource.data.keys().hasOnly(['email', 'uid', 'unidade'])
+        && unidadeValida(request.resource.data.get('unidade', ''))
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email.lower()
         && exists(/databases/$(database)/documents/autorizados/$(request.auth.token.email.lower()));

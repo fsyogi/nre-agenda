@@ -121,7 +121,7 @@ import {
   updateProfile, deleteUser, sendEmailVerification, sendPasswordResetEmail, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp
+  getFirestore, doc, getDoc, getDocs, query, where, setDoc, collection, onSnapshot, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ============ Configuração ============ */
@@ -191,6 +191,9 @@ const marcaHtml = (sub) => `
     <h1>RH | APOSENTADORIA</h1><small>${esc(sub)}</small>
   </div>`;
 
+const UNIDADES = ["NRE/PREV", "NRE/RH/APOSENTADORIA"];
+const optUnidade = (sel) => `<option value="">Não informada</option>` + UNIDADES.map((u) => `<option value="${u}" ${u === sel ? "selected" : ""}>${u}</option>`).join("");
+
 const rodape = `<footer>Desenvolvido por Fernando Yogi · © 2026 · Todos os direitos reservados</footer>`;
 
 function confirmar(titulo, texto, rotulo) {
@@ -238,6 +241,7 @@ function telaAuth(modo) {
     <form id="f-auth" novalidate>
       ${recuperar ? `<h2>Recuperar senha</h2><p class="suave">Informe seu usuário ou o e-mail da conta. Enviaremos um link para criar uma nova senha.</p>` : ""}
       ${criar ? `<div class="campo"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" required></div>` : ""}
+      ${criar ? `<div class="campo"><label for="unidade">Unidade</label><select id="unidade" required><option value="">Selecione…</option>${UNIDADES.map((u) => `<option value="${u}">${u}</option>`).join("")}</select></div>` : ""}
       ${criar ? `<div class="campo"><label for="usuario">Nome de usuário</label><input id="usuario" autocomplete="username" autocapitalize="none" placeholder="ex.: maria.pezente" required><small class="suave">Use letras minúsculas, números, ponto, hífen ou sublinhado (de 3 a 30 caracteres). É com ele que você vai entrar.</small></div>` : ""}
       <div class="campo"><label for="email">${criar ? "E-mail (liberado pelo administrador)" : "Usuário ou e-mail"}</label><input id="email" ${criar ? 'type="email" autocomplete="email"' : 'type="text" autocomplete="username" autocapitalize="none"'} required></div>
       ${recuperar ? "" : `<div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="${criar ? "new-password" : "current-password"}" required></div>`}
@@ -281,13 +285,15 @@ function telaAuth(modo) {
         if (nome.length < 3) { btn.disabled = false; return aviso(msg, "erro", "Informe seu nome completo."); }
         if (form.senha.value.length < 6) { btn.disabled = false; return aviso(msg, "erro", "A senha precisa ter pelo menos 6 caracteres."); }
         if (form.senha.value !== form.senha2.value) { btn.disabled = false; return aviso(msg, "erro", "As senhas não conferem."); }
+        const unidade = form.unidade.value;
+        if (!UNIDADES.includes(unidade)) { btn.disabled = false; return aviso(msg, "erro", "Selecione a sua unidade."); }
         const usuarioNome = form.usuario.value.trim().toLowerCase();
         if (!/^[a-z0-9._-]{3,30}$/.test(usuarioNome)) { btn.disabled = false; return aviso(msg, "erro", "Usuário inválido. Use de 3 a 30 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."); }
         if ((await getDoc(doc(db, "logins", usuarioNome))).exists()) { btn.disabled = false; return aviso(msg, "erro", "Este nome de usuário já está em uso. Escolha outro."); }
         criandoConta = true;
         const cred = await createUserWithEmailAndPassword(auth, email, form.senha.value);
         try {
-          await setDoc(doc(db, "logins", usuarioNome), { email, uid: cred.user.uid });
+          await setDoc(doc(db, "logins", usuarioNome), { email, uid: cred.user.uid, unidade });
         } catch (e2) {
           console.error(e2);
           try { await deleteUser(cred.user); } catch (_) {}
@@ -429,6 +435,7 @@ function viewUsuarios() {
         <div><label for="l-email">E-mail</label><input id="l-email" type="email" autocomplete="off" required></div>
         <div><label for="l-perfil">Perfil</label>
           <select id="l-perfil">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === "consulta" ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+        <div><label for="l-unidade">Unidade</label><select id="l-unidade">${optUnidade("")}</select></div>
         <button class="btn" type="submit">Liberar</button>
       </form>
       <div id="msg-liberar" class="msg" role="alert"></div>
@@ -458,7 +465,7 @@ function viewUsuarios() {
   function desenhar() {
     const rs = linhas();
     if (!rs.length) { tabela.innerHTML = `<p class="suave">Nenhum usuário ainda.</p>`; return; }
-    tabela.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>
+    tabela.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Unidade</th><th>Situação</th><th></th></tr></thead><tbody>
       ${rs.map((r) => {
         const eu = r.uid === perfil.uid;
         return `<tr data-email="${esc(r.email)}" data-uid="${esc(r.uid || "")}">
@@ -466,6 +473,7 @@ function viewUsuarios() {
           <td>${esc(r.email)}</td>
           <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
             ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
+          <td><select data-acao="unidade" aria-label="Unidade de ${esc(r.email)}">${optUnidade(r.unidade)}</select></td>
           <td><span class="tag ${r.cadastrado ? "tag-ok" : "tag-espera"}">${r.cadastrado ? "Cadastrado" : "Aguardando cadastro"}</span></td>
           <td>${eu ? "" : `<button class="btn btn-perigo" data-acao="remover">Remover acesso</button>`}</td></tr>`;
       }).join("")}</tbody></table>`;
@@ -486,6 +494,7 @@ function viewUsuarios() {
       await setDoc(doc(db, "autorizados", email), {
         perfil: f["l-perfil"].value,
         nome: f["l-nome"].value.trim(),
+        unidade: f["l-unidade"].value,
         criadoPor: perfil.email,
         criadoEm: serverTimestamp()
       });
@@ -495,6 +504,18 @@ function viewUsuarios() {
   });
 
   tabela.addEventListener("change", async (ev) => {
+    const su = ev.target.closest("select[data-acao=unidade]");
+    if (su) {
+      const tr = su.closest("tr"); const email = tr.dataset.email, uid = tr.dataset.uid;
+      try {
+        const b = writeBatch(db);
+        if (uid) b.update(doc(db, "usuarios", uid), { unidade: su.value });
+        b.set(doc(db, "autorizados", email), { unidade: su.value }, { merge: true });
+        await b.commit();
+        aviso(msgL, "ok", "Unidade atualizada.");
+      } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); desenhar(); }
+      return;
+    }
     const sel = ev.target.closest("select[data-acao=perfil]");
     if (!sel) return;
     const tr = sel.closest("tr");
@@ -539,6 +560,10 @@ async function obterPerfil(u) {
     perfil: aut.data().perfil,
     criadoEm: serverTimestamp()
   };
+  let un = "";
+  try { const q = await getDocs(query(collection(db, "logins"), where("uid", "==", u.uid))); if (!q.empty) un = q.docs[0].data().unidade || ""; } catch (_) {}
+  if (!UNIDADES.includes(un)) un = aut.data().unidade || "";
+  if (UNIDADES.includes(un)) dados.unidade = un;
   await setDoc(ref, dados);
   return { uid: u.uid, ...dados };
 }
