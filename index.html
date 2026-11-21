@@ -83,7 +83,11 @@
   .abas button.ativa { color: var(--primaria); border-bottom-color: var(--primaria); }
   main { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 22px 16px 40px; }
   .card { background: var(--card); border: 1px solid var(--linha); border-radius: var(--raio); padding: 20px; margin-bottom: 18px; }
-  .grade { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr auto; gap: 12px; align-items: end; }
+  .grade { display: grid; grid-template-columns: 1.2fr 1.4fr 1fr 1.2fr auto; gap: 12px; align-items: end; }
+  .un-cel { display: flex; gap: 8px; align-items: center; min-width: 230px; }
+  .un-cel select { flex: 1; }
+  .un-cel .btn { width: auto; flex: none; padding: 7px 14px; }
+  .un-cel .btn:disabled { opacity: .45; cursor: default; }
   .grade .btn { width: auto; }
   .modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
   .modulo { display: block; border: 1px solid var(--linha); border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; background: #fff; }
@@ -448,6 +452,7 @@ function viewUsuarios() {
 
 
   let aut = new Map(), usr = new Map();
+  const pendUn = new Map(); // unidade escolhida e ainda não salva, por e-mail
   const tabela = c.querySelector("#tabela");
   const msgL = c.querySelector("#msg-liberar");
 
@@ -473,7 +478,8 @@ function viewUsuarios() {
           <td>${esc(r.email)}</td>
           <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
             ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
-          <td><select data-acao="unidade" aria-label="Unidade de ${esc(r.email)}">${optUnidade(r.unidade)}</select></td>
+          <td><div class="un-cel"><select data-acao="unidade" aria-label="Unidade de ${esc(r.email)}">${optUnidade(pendUn.has(r.email) ? pendUn.get(r.email) : r.unidade)}</select>
+            <button class="btn" data-acao="salvar-unidade" ${pendUn.has(r.email) && pendUn.get(r.email) !== (r.unidade || "") ? "" : "disabled"}>Salvar</button></div></td>
           <td><span class="tag ${r.cadastrado ? "tag-ok" : "tag-espera"}">${r.cadastrado ? "Cadastrado" : "Aguardando cadastro"}</span></td>
           <td>${eu ? "" : `<button class="btn btn-perigo" data-acao="remover">Remover acesso</button>`}</td></tr>`;
       }).join("")}</tbody></table>`;
@@ -506,14 +512,10 @@ function viewUsuarios() {
   tabela.addEventListener("change", async (ev) => {
     const su = ev.target.closest("select[data-acao=unidade]");
     if (su) {
-      const tr = su.closest("tr"); const email = tr.dataset.email, uid = tr.dataset.uid;
-      try {
-        const b = writeBatch(db);
-        if (uid) b.update(doc(db, "usuarios", uid), { unidade: su.value });
-        b.set(doc(db, "autorizados", email), { unidade: su.value }, { merge: true });
-        await b.commit();
-        aviso(msgL, "ok", "Unidade atualizada.");
-      } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); desenhar(); }
+      const tr = su.closest("tr"); const email = tr.dataset.email;
+      pendUn.set(email, su.value);
+      const atual = (linhas().find((x) => x.email === email) || {}).unidade || "";
+      tr.querySelector("button[data-acao=salvar-unidade]").disabled = su.value === atual;
       return;
     }
     const sel = ev.target.closest("select[data-acao=perfil]");
@@ -530,6 +532,21 @@ function viewUsuarios() {
   });
 
   tabela.addEventListener("click", async (ev) => {
+    const bs = ev.target.closest("button[data-acao=salvar-unidade]");
+    if (bs) {
+      const tr = bs.closest("tr"); const email = tr.dataset.email, uid = tr.dataset.uid;
+      const valor = tr.querySelector("select[data-acao=unidade]").value;
+      bs.disabled = true;
+      try {
+        const b = writeBatch(db);
+        if (uid) b.update(doc(db, "usuarios", uid), { unidade: valor });
+        b.set(doc(db, "autorizados", email), { unidade: valor }, { merge: true });
+        await b.commit();
+        pendUn.delete(email);
+        aviso(msgL, "ok", "Unidade salva.");
+      } catch (e) { console.error(e); aviso(msgL, "erro", msgErro(e)); bs.disabled = false; }
+      return;
+    }
     const bt = ev.target.closest("button[data-acao=remover]");
     if (!bt) return;
     const tr = bt.closest("tr");
