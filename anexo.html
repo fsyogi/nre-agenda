@@ -12,7 +12,9 @@ main{max-width:900px;margin:18px auto;padding:0 14px}
 .card{background:#fff;border:1px solid #d5dbe0;border-radius:10px;padding:16px 18px}
 h1{font-size:19px;margin:0 0 6px;color:#03313d;word-break:break-word}
 .meta{color:#555;font-size:14px;margin-bottom:12px}
-.btn{display:inline-block;background:#03313d;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:15px;cursor:pointer;text-decoration:none}
+.btn{display:block;text-align:center;background:#03313d;color:#fff;border:0;border-radius:10px;padding:18px 20px;font-size:20px;font-weight:700;cursor:pointer;text-decoration:none;margin:14px 0 6px}
+.dica{color:#444;font-size:15px;margin:6px 0 0}
+@media(max-width:700px){embed{display:none}body{font-size:17px}h1{font-size:21px}}
 embed,iframe{width:100%;height:75vh;border:1px solid #d5dbe0;border-radius:6px;margin-top:14px;background:#fff}
 .err{color:#9A3B1E;font-weight:700}
 .rod{margin-top:14px;color:#666;font-size:12.5px}
@@ -55,7 +57,7 @@ const falha = (t) => { c.innerHTML = '<div class="err">' + t + '</div><p>Peça a
       url = URL.createObjectURL(new Blob([a], { type: "application/pdf" }));
     }
     const ate = x.exp ? new Date(x.exp).toLocaleDateString("pt-BR") : "";
-    c.innerHTML = "<h1>" + esc(x.nome) + '</h1><div class="meta">' + Math.max(1, Math.round(tam / 1024)) + " KB" + (ate ? " · disponível até " + ate : "") + '</div><a class="btn" href="' + url + '" target="_blank" rel="noopener" download="' + esc(x.nome) + '">Baixar PDF</a><embed src="' + url + '" type="application/pdf">';
+    c.innerHTML = "<h1>" + esc(x.nome) + '</h1><div class="meta">' + Math.max(1, Math.round(tam / 1024)) + " KB" + (ate ? " · disponível até " + ate : "") + '</div><a class="btn" href="' + url + '" target="_blank" rel="noopener" download="' + esc(x.nome) + '">Abrir e baixar o documento (PDF)</a><p class="dica">Toque no botão acima. O arquivo abre no seu aparelho e pode ser salvo ou impresso.</p><embed src="' + url + '" type="application/pdf">';
   } catch (e) {
     falha("Documento não encontrado ou com prazo vencido.");
   }
