@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Backup · Núcleo Regional de Educação de Londrina</title>
+<style>
+body{margin:0;font:16px/1.5 "Segoe UI",Arial,sans-serif;color:#0e2530;background:#eef3f6}
+header{background:#03313d;color:#fff;padding:14px 18px;font-weight:700;border-bottom:3px solid #5cc021}
+main{max-width:720px;margin:18px auto;padding:0 14px}
+.card{background:#fff;border:1px solid #d6e2ea;border-radius:12px;padding:18px 20px;box-shadow:0 1px 2px rgba(3,49,61,.06)}
+h1{font-size:20px;margin:0 0 6px;color:#03313d}
+.meta{color:#52687a;font-size:14px;margin-bottom:14px}
+.btn{display:inline-block;background:#087a2b;color:#fff;border:0;border-radius:10px;padding:11px 18px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn:hover{background:#06631f}
+.err{color:#b3261e;font-weight:700}
+.rod{margin-top:14px;color:#52687a;font-size:12.5px}
+a{color:#0566c0}
+</style>
+</head>
+<body>
+<header>Núcleo Regional de Educação de Londrina</header>
+<main><div class="card" id="c">Verificando o acesso…</div>
+<p class="rod">O arquivo contém dados pessoais. Guarde em local seguro e não compartilhe este endereço. O link vale por 7 dias.</p></main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const app = initializeApp({
+  apiKey: "AIzaSyAelqHRND1PbEkq6F_--tuA1ayqmGB2nC8",
+  authDomain: "nre-agenda.firebaseapp.com",
+  projectId: "nre-agenda",
+  storageBucket: "nre-agenda.firebasestorage.app",
+  messagingSenderId: "912885535163",
+  appId: "1:912885535163:web:7b8d409269e12b6e8b749e"
+});
+const c = document.getElementById("c");
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+const falha = (t, extra) => { c.innerHTML = '<div class="err">' + t + "</div>" + (extra || ""); };
+const id = new URLSearchParams(location.search).get("id") || "";
+onAuthStateChanged(getAuth(app), async (u) => {
+  if (!/^[a-f0-9]{48}$/.test(id)) return falha("Endereço inválido.");
+  if (!u || !u.emailVerified) return falha("Entre no sistema para baixar o backup.", '<p>Abra o <a href="./">portal do NRE Agenda</a>, entre com sua conta de administrador e depois abra este link de novo.</p>');
+  try {
+    const d = await getDoc(doc(getFirestore(app), "agenda_backup", id));
+    if (!d.exists()) return falha("Backup não encontrado ou com prazo vencido.");
+    const x = d.data();
+    if (!x.b64 || (x.exp && Date.now() > x.exp)) return falha("Este backup está com o prazo vencido.");
+    const bin = atob(x.b64), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const ate = x.exp ? new Date(x.exp).toLocaleDateString("pt-BR") : "";
+    c.innerHTML = "<h1>Backup do sistema de agendamento</h1><div class=\"meta\">Gerado em " + esc(x.dt) + (ate ? " · disponível até " + ate : "") + '</div><button class="btn" id="bx">Baixar backup (.json)</button><div id="bm" class="meta" style="margin-top:10px"></div>';
+    document.getElementById("bx").onclick = async () => {
+      const m = document.getElementById("bm");
+      try {
+        const txt = await new Response(new Blob([a]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+        const u2 = URL.createObjectURL(new Blob([txt], { type: "application/json" }));
+        const l = document.createElement("a");
+        l.href = u2; l.download = "backup_agendamento_" + new Date().toISOString().slice(0, 10) + ".json";
+        document.body.appendChild(l); l.click(); l.remove();
+        m.textContent = "Arquivo baixado. Para restaurar, use Backup, Restaurar de arquivo, dentro do sistema.";
+      } catch (e) { m.innerHTML = '<span class="err">Não foi possível preparar o arquivo neste navegador. Use o Chrome ou o Edge atualizado.</span>'; }
+    };
+  } catch (e) {
+    falha(e && e.code === "permission-denied" ? "Só administradores podem baixar este backup." : "Não foi possível abrir o backup.");
+  }
+});
+</script>
+</body>
+</html>
