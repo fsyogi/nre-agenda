@@ -106,6 +106,8 @@ service cloud.firestore {
         && request.resource.data.b64.size() < 960000;
       allow delete: if podeEditarAgenda();
     }
+    // Histórico de conferências do Diário Oficial: leitura por quem tem acesso; editores registram; só o administrador corrige ou apaga
+    match /agenda_conf/{id} { allow read: if temAcesso(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
     // Lixeira (30 dias): editores enviam o que excluem; só o administrador lê, restaura e apaga
     match /agenda_lixo/{id} { allow read: if ehAdmin(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
   }
