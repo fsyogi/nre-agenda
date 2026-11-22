@@ -3,9 +3,6 @@ on:
   schedule:
     - cron: "30 10 * * 1-5"   # 07:30 em Brasilia, de segunda a sexta
   workflow_dispatch:
-  push:
-    branches: [monitoramento]
-    paths: ["robo/**", ".github/workflows/robo-diario.yml"]
 concurrency:
   group: robo-diario
   cancel-in-progress: false
@@ -24,6 +21,3 @@ jobs:
       - run: python robo/robo.py
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          TESTE_EPROT: "26.299.835-5;26.472.337-0"
-          TESTE_DESDE: "2026-10-26"
-          JANELA_DIAS: "30"
