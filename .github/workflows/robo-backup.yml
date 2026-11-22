@@ -1,0 +1,31 @@
+name: Backup automatico por e-mail
+on:
+  schedule:
+    - cron: "5 * * * *"   # confere a cada hora se ha backup programado vencido
+  workflow_dispatch:
+    inputs:
+      so_testar:
+        description: "1 = so gera e mede o backup, sem gravar nem enviar"
+        default: "0"
+concurrency:
+  group: robo-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: robo/requirements.txt
+      - run: pip install -r robo/requirements.txt
+      - run: python robo/backup.py
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          BACKUP_SO_TESTAR: ${{ github.event.inputs.so_testar }}
