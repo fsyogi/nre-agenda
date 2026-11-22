@@ -924,17 +924,21 @@ function monWire(r,ands,drawAnd,LU){
     if(mc){const [k,v]=mc.dataset.mcom.split(':');const c=cur();const m0=c.monit||{};const com={...(m0.com||{})};if(v==='1')com[k]={dt:nowStr(),us:LU};else delete com[k];
       if(await save('atd',r.id,{...c,monit:{...m0,com},atualizadoEm:nowStr()}))openAtd(r.id)}};
 }
-const monPend=()=>atdList().filter(r=>monPub(r)).map(r=>({r,f:monDest(r).filter(d=>!((r.monit.com||{})[d.k]))})).filter(x=>x.f.length);
+/* o aviso de publicação vale enquanto o último andamento do atendimento (sem contar registros do robô) for o da própria publicação */
+const monAguarda=r=>{if(!monPub(r))return false;const a=(r.and||[]).filter(x=>!x.rb);const u=a[a.length-1];return !!u&&!!u.pb};
+const monPend=()=>atdList().filter(monAguarda).map(r=>({r,f:monDest(r).filter(d=>!((r.monit.com||{})[d.k]))}));
+const monQuem=r=>monDest(r).map(d=>d.k==='srv'?'servidor':d.k==='esc'?'escola':'procurador');
 function monAviso(){
   if(window.__monDone||!window.__user||window.__ro)return;if(!(loaded.atd&&loaded.cfg))return;window.__monDone=true;
-  const lim=Date.now()-15*864e5;
-  const l=monPend().filter(({r})=>{const m=String(r.monit.pubDt||'').match(/^(\d{4})-(\d\d)-(\d\d)/);return m&&new Date(+m[1],+m[2]-1,+m[3]).getTime()>=lim});
-  if(!l.length)return;
-  setTimeout(()=>{if($('#mbg')&&$('#mbg').classList.contains('on'))return;
-    $('#modal').innerHTML=`<h3 style="color:#b42318">⚠ Publicação localizada</h3><p style="margin-top:0;color:var(--mut);font-size:14px">Há publicações no Diário Oficial com comunicação pendente. Comunique servidor, escola e procurador, quando houver.</p>
-    <div style="display:flex;flex-direction:column;gap:10px">${l.map(({r,f})=>`<div style="border:1px solid #f0c9c4;background:#fff5f4;border-radius:10px;padding:12px"><div style="font-size:14px;line-height:1.45"><b>${esc(r.nome)}</b> · publicado em <b>${esc(br(r.monit.pubDt))}</b>, Diário nº ${esc(r.monit.pubEd)}<br><span style="color:var(--mut)">Falta comunicar: ${esc(f.map(d=>d.k==='srv'?'servidor':d.k==='esc'?'escola':'procurador').join(', '))}</span></div><div style="margin-top:8px"><button class="btn pri sm" type="button" data-praz="${esc(r.id)}">Abrir atendimento</button></div></div>`).join('')}</div>
+  if(!monPend().length)return;
+  /* sobe a cada abertura ou atualização do sistema; se outro aviso estiver na tela, espera ele ser fechado */
+  const mostra=()=>{if($('#mbg')&&$('#mbg').classList.contains('on'))return false;
+    const l=monPend();if(!l.length)return true;
+    $('#modal').innerHTML=`<h3 style="color:#b42318">⚠ Publicação no Diário Oficial</h3><p style="margin-top:0;color:var(--mut);font-size:14px">${l.length===1?'Saiu a publicação abaixo':'Saíram as publicações abaixo'}. O aviso continua até que seja registrado um novo andamento no atendimento.</p>
+    <div style="display:flex;flex-direction:column;gap:10px">${l.map(({r})=>`<div style="border:1px solid #f0c9c4;background:#fff5f4;border-radius:10px;padding:12px"><div style="font-size:14px;line-height:1.5">Foi publicada no Diário Oficial a aposentadoria do(a) servidor(a) <b>${esc(r.nome)}</b>, no dia <b>${esc(br(r.monit.pubDt))}</b> (Diário nº ${esc(r.monit.pubEd)}, ${esc(pgTxt(r.monit.pubPg))}).<br>Deseja enviar comunicado ao ${esc(monQuem(r).join(', ').replace(/, ([^,]*)$/,' e $1'))}? <a href="#" data-praz="${esc(r.id)}"><b>Clique aqui</b></a></div><div style="margin-top:8px"><button class="btn pri sm" type="button" data-praz="${esc(r.id)}">Abrir o atendimento</button></div></div>`).join('')}</div>
     <div class="row" style="margin-top:14px"><button class="btn" type="button" data-close>Fechar</button></div>`;
-    $('#mbg').classList.add('on')},1500)}
+    $('#mbg').classList.add('on');return true};
+  let n=0;const t=setInterval(()=>{if(mostra()||++n>40)clearInterval(t)},1500)}
 function vDoe(){
   const q=norm(S.doeq||'');
   const all=Object.values(cf).filter(x=>x&&x.data).sort((a,b)=>String(b.data+'_'+(b.ed||'')).localeCompare(String(a.data+'_'+(a.ed||''))));
@@ -947,7 +951,7 @@ function vDoe(){
   const pend=monPend();
   return `<div class="card"><div class="row" style="align-items:flex-end"><h2 style="margin:0">Diário Oficial</h2><span class="tag ok">${all.length} conferência(s)</span><span class="tag hol">${mon.length} em monitoramento</span>${semEp.length?`<span class="tag" style="background:#fde2e2;color:#b42318">${semEp.length} sem e-protocolo</span>`:''}<span class="grow"></span>${window.__ro?'':'<button class="btn pri" type="button" data-doenew="1">Registrar conferência</button>'}</div>
   <p style="color:var(--mut);font-size:13.5px;margin:6px 0 0">Histórico de conferências do Diário Oficial do Estado (Poder Executivo) dos atendimentos de aposentadoria. Serve como prova de que a edição foi conferida, com ou sem resultado.</p>
-  ${pend.length?`<h3 style="margin:14px 0 6px;color:#b42318">Comunicações pendentes</h3><div class="tablewrap"><table><thead><tr><th>Servidor</th><th>Publicado em</th><th>Falta comunicar</th><th></th></tr></thead><tbody>${pend.map(({r,f})=>`<tr><td>${esc(r.nome)}</td><td>${esc(br(r.monit.pubDt))} · nº ${esc(r.monit.pubEd)}</td><td>${esc(f.map(d=>d.k==='srv'?'servidor':d.k==='esc'?'escola':'procurador').join(', '))}</td><td><button class="btn sm" type="button" data-praz="${esc(r.id)}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`:''}
+  ${pend.length?`<h3 style="margin:14px 0 6px;color:#b42318">Publicações aguardando novo andamento</h3><div class="tablewrap"><table><thead><tr><th>Servidor</th><th>Publicado em</th><th>Comunicar</th><th></th></tr></thead><tbody>${pend.map(({r,f})=>`<tr><td>${esc(r.nome)}</td><td>${esc(br(r.monit.pubDt))} · nº ${esc(r.monit.pubEd)}</td><td>${esc(monQuem(r).join(', '))}${f.length<monQuem(r).length?` <span style="color:var(--mut);font-size:12px">(já marcado: ${monQuem(r).length-f.length})</span>`:''}</td><td><button class="btn sm" type="button" data-praz="${esc(r.id)}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`:''}
   <h3 style="margin:14px 0 6px">Em monitoramento</h3>${mon.length?`<div class="tablewrap"><table><thead><tr><th>Servidor</th><th>Processo e-protocolo</th><th>Situação</th><th>Última conferência</th><th></th></tr></thead><tbody>${mon.map(r=>`<tr><td>${esc(r.nome)}</td><td>${r.eprot?esc(r.eprot):'<span style="color:#b42318">sem e-protocolo</span>'}</td><td>${esc((MON_ST.find(x=>x[0]===monEst(r))||['',''])[1])}</td><td>${esc(ult(r))}</td><td><button class="btn sm" type="button" data-praz="${esc(r.id)}">Abrir</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Nenhum atendimento de aposentadoria em monitoramento.</div>'}
   <h3 style="margin:14px 0 6px">Conferências</h3><div style="max-width:320px"><label>Buscar por data, edição ou nome</label><input id="doeq" value="${esc(S.doeq||'')}" placeholder="Ex.: 29/10/2026 ou nome"></div>
   ${rows?`<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Data</th><th>Edição nº</th><th>Caderno</th><th>Conferido em</th><th>Nomes</th><th>Resultado</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Nenhuma conferência registrada.</div>'}</div>`}
@@ -2420,7 +2424,7 @@ document.addEventListener('click',e=>{
   const fcl=t.closest('[data-fclr]');if(fcl&&fcl.dataset.fclr==='rel'){relSync();['att','serv','proc','st','cargo','esc','per','dow'].forEach(k=>S.rel[k]='');render();return}
   if(fcl){S[fcl.dataset.fclr==='atd'?'fa':'fc']={};render();return}
   const dn=t.closest('[data-doenew]');if(dn){e.preventDefault();openConf();return}
-  const pz=t.closest('[data-praz]');if(pz){const pid=pz.dataset.praz;closeModal();go('atd');openAtd(pid);return}
+  const pz=t.closest('[data-praz]');if(pz){e.preventDefault();const pid=pz.dataset.praz;closeModal();go('atd');openAtd(pid);return}
   const egp=t.closest('[data-eprotgo]');if(egp){e.preventDefault();e.stopPropagation();eprotConsulta(egp.dataset.eprotgo);return}
   const asr=t.closest('[data-atdsort]');if(asr){const k=asr.dataset.atdsort;S.atds=(S.atds&&S.atds.k===k)?(S.atds.d==='a'?{k,d:'d'}:null):{k,d:'a'};render();return}
   const aed=t.closest('[data-atdedit]');if(aed){openAtd(aed.dataset.atdedit);return}
