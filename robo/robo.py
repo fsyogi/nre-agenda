@@ -151,6 +151,13 @@ def abrir_db():
 def main():
     inicio = agora(); hoje = inicio.date()
     db = abrir_db()
+    so_pedido = os.environ.get("SO_SE_PEDIDO") == "1"
+    if so_pedido:
+        if not db: print("sem credencial"); sys.exit(0)
+        pd = db.collection("agenda_cfg").document("robo_pedido").get().to_dict() or {}
+        if pd.get("estado") != "pendente":
+            print("nenhum pedido pendente"); sys.exit(0)
+        print("pedido de consulta encontrado")
     status = {"ultimaExecucao": nowstr(), "ok": True, "erro": "", "eprotOk": True, "doeOk": True, "editoes": 0, "monitorados": 0, "modo": "real" if db else "simulacao"}
     # --- lista de monitorados
     if db:
@@ -271,6 +278,9 @@ def main():
     print("status:", json.dumps({k: v for k, v in status.items()}, ensure_ascii=False))
     if db:
         db.collection("agenda_cfg").document("robo").set(status)
+        ped = db.collection("agenda_cfg").document("robo_pedido")
+        if (ped.get().to_dict() or {}).get("estado") == "pendente":
+            ped.update({"estado": "atendido" if status["ok"] else "falhou", "atendidoEm": nowstr(), "erro": status["erro"]})
     sys.exit(0 if status["ok"] else 1)
 
 if __name__ == "__main__":

@@ -1,0 +1,26 @@
+name: Robo sob pedido (botao Consultar agora)
+on:
+  schedule:
+    - cron: "*/10 9-23 * * 1-5"   # a cada 10 minutos, 06:00 a 20:50 em Brasilia, de segunda a sexta
+  workflow_dispatch:
+concurrency:
+  group: robo-diario
+  cancel-in-progress: false
+jobs:
+  robo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: robo/requirements.txt
+      - run: pip install -r robo/requirements.txt
+      - run: python robo/robo.py
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SO_SE_PEDIDO: "1"
