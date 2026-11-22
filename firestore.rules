@@ -83,15 +83,17 @@ service cloud.firestore {
     match /agenda_cfg/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     // Logs: editores só criam; ninguém altera nem apaga, exceto o administrador
     match /agenda_log/{id}  { allow read: if temAcesso(); allow create: if podeEditarAgenda(); allow update, delete: if ehAdmin(); }
-    // Backups automáticos enviados por link (validade 7 dias): só administrador lê, cria e apaga
+    // Backups automáticos enviados por link (validade 7 dias): só administrador lê;
+    // administrador e coordenador criam (o envio pode ser disparado por quem abrir o sistema após o horário);
+    // o registro de reserva (b64 vazio) impede envio em duplicidade e pode ser apagado por quem edita
     match /agenda_backup/{id} {
       allow read: if ehAdmin();
-      allow create: if ehAdmin()
+      allow create: if podeEditarAgenda()
         && request.resource.data.keys().hasOnly(['b64', 'exp', 'dt', 'us', 'tam'])
         && request.resource.data.exp is number
         && request.resource.data.b64 is string
         && request.resource.data.b64.size() < 950000;
-      allow delete: if ehAdmin();
+      allow delete: if ehAdmin() || (podeEditarAgenda() && resource.data.b64 == '');
     }
     // Anexos de PDF enviados por link (validade 30 dias): quem tem o endereço (código longo e aleatório) lê só enquanto não vence; ninguém lista; só editores criam e apagam
     match /agenda_anexo/{id} {

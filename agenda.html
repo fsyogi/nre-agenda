@@ -2007,31 +2007,39 @@ async function bkEnviar(it){
   try{await db.collection('backup').doc(id).set({b64:g.b64,exp,dt:nowStr(),us:window.__user||'',tam:g.tam})}catch(e){throw new Error('não foi possível guardar o backup ('+(e&&(e.code||e.message)||e)+')')}
   const url=new URL('backup.html?id='+id,location.href).href;
   const ate=br(iso(new Date(exp)));
-  const msg='Backup do Sistema de Agendamento de Atendimentos, gerado em '+nowStr()+'.\n\nRegistros: '+g.qt.ag+' agendamentos, '+g.qt.canc+' cancelados, '+g.qt.cad+' cadastros e '+g.qt.atd+' atendimentos.\n\nPara baixar o arquivo, entre no sistema com sua conta de administrador e abra o link até '+ate+':\n'+url+'\n\nO arquivo contém dados pessoais: não encaminhe este e-mail.';
+  const msg='Backup do Sistema de Agendamento de Atendimentos, gerado em '+nowStr()+(window.__user?' pela conta '+window.__user+' (perfil '+(window.__perfil||'-')+')':'')+'.\n\nRegistros: '+g.qt.ag+' agendamentos, '+g.qt.canc+' cancelados, '+g.qt.cad+' cadastros e '+g.qt.atd+' atendimentos.\n\nPara baixar o arquivo, entre no sistema com sua conta de administrador e abra o link até '+ate+':\n'+url+'\n\nO arquivo contém dados pessoais: não encaminhe este e-mail.';
   try{await mailSend(ct,{to:[it.email],bcc:false,sub:'Backup do sistema de agendamento · '+nowStr(),msg,html:mailClean(esc(msg).replace(/\n/g,'<br>'))})}
   catch(e){try{await db.collection('backup').doc(id).delete()}catch(x){}throw e}
   return{id,exp}}
 async function bkPurge(){
+  if(window.__perfil!=='admin')return;
   const h=(bkCfg().hist||[]);const now=Date.now();const ven=h.filter(x=>x.exp<now);if(!ven.length)return;
   for(const x of ven){try{await db.collection('backup').doc(x.id).delete()}catch(e){}}
   await bkSave(bkList(),h.filter(x=>x.exp>=now))}
 async function bkRodar(it,manual){
   const before=bkList().find(x=>x.id===it.id);if(!before)return false;
   const occ=bkOcc(it,Date.now());const prev=before.ult||0;
+  let claim='';
+  if(!manual){
+    claim='c_'+String(it.id).replace(/[^A-Za-z0-9_-]/g,'')+'_'+occ;
+    try{await db.collection('backup').doc(claim).set({b64:'',exp:occ+8*864e5,dt:nowStr(),us:window.__user||'',tam:0})}
+    catch(e){window.__bkFail=window.__bkFail||{};window.__bkFail[it.id]=Date.now();return false}
+  }
   if(!manual){await bkSave(bkList().map(x=>x.id===it.id?{...x,ult:occ}:x))}
   try{
     const r=await bkEnviar(it);
-    const hist=[...(bkCfg().hist||[]),{id:r.id,exp:r.exp}];
+    const hist=[...(bkCfg().hist||[]),{id:r.id,exp:r.exp}].concat(claim?[{id:claim,exp:occ+8*864e5}]:[]);
     await bkSave(bkList().map(x=>x.id===it.id?{...x,ult:manual?x.ult:occ,ultEm:nowStr(),err:''}:x),hist);
     return true}
   catch(e){
     const msg=String(e&&e.message||e).slice(0,160);
+    if(claim){try{await db.collection('backup').doc(claim).delete()}catch(x){}}
     await bkSave(bkList().map(x=>x.id===it.id?{...x,ult:manual?x.ult:prev,err:nowStr()+' · '+msg}:x));
     window.__bkFail=window.__bkFail||{};window.__bkFail[it.id]=Date.now();
     if(manual)toast('Não foi possível enviar o backup: '+msg);
     return false}}
 async function bkTick(){
-  if(!db||window.__ro||window.__perfil!=='admin'||window.__bkBusy)return;
+  if(!db||window.__ro||!['admin','coordenador'].includes(window.__perfil)||window.__bkBusy)return;
   if(!(loaded.cfg&&loaded.ag&&loaded.cad&&loaded.atd&&loaded.canc))return;
   const now=Date.now();window.__bkFail=window.__bkFail||{};
   const due=bkList().filter(it=>it.on!==false&&it.ult&&bkOcc(it,now)>it.ult&&!(window.__bkFail[it.id]&&now-window.__bkFail[it.id]<15*60000));
