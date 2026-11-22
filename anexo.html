@@ -24,6 +24,7 @@ embed,iframe{width:100%;height:75vh;border:1px solid #d5dbe0;border-radius:6px;m
 <p class="rod">Documento enviado pelo NRE Londrina. O arquivo fica disponível por tempo limitado e pode conter dados pessoais: não compartilhe este endereço.</p></main>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyAelqHRND1PbEkq6F_--tuA1ayqmGB2nC8",
@@ -43,12 +44,18 @@ const falha = (t) => { c.innerHTML = '<div class="err">' + t + '</div><p>Peça a
     const d = await getDoc(doc(getFirestore(app), "agenda_anexo", id));
     if (!d.exists()) return falha("Documento não encontrado ou com prazo vencido.");
     const x = d.data();
-    if (!x.b64 || (x.exp && Date.now() > x.exp)) return falha("Este documento está com o prazo vencido.");
-    const bin = atob(x.b64), a = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([a], { type: "application/pdf" }));
+    if ((!x.b64 && !x.st) || (x.exp && Date.now() > x.exp)) return falha("Este documento está com o prazo vencido.");
+    let url, tam = x.tam || 0;
+    if (x.st) {
+      url = await getDownloadURL(ref(getStorage(app), "anexos/" + id + ".pdf"));
+    } else {
+      const bin = atob(x.b64), a = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      tam = tam || a.length;
+      url = URL.createObjectURL(new Blob([a], { type: "application/pdf" }));
+    }
     const ate = x.exp ? new Date(x.exp).toLocaleDateString("pt-BR") : "";
-    c.innerHTML = "<h1>" + esc(x.nome) + '</h1><div class="meta">' + Math.max(1, Math.round((x.tam || a.length) / 1024)) + " KB" + (ate ? " · disponível até " + ate : "") + '</div><a class="btn" href="' + url + '" download="' + esc(x.nome) + '">Baixar PDF</a><embed src="' + url + '" type="application/pdf">';
+    c.innerHTML = "<h1>" + esc(x.nome) + '</h1><div class="meta">' + Math.max(1, Math.round(tam / 1024)) + " KB" + (ate ? " · disponível até " + ate : "") + '</div><a class="btn" href="' + url + '" target="_blank" rel="noopener" download="' + esc(x.nome) + '">Baixar PDF</a><embed src="' + url + '" type="application/pdf">';
   } catch (e) {
     falha("Documento não encontrado ou com prazo vencido.");
   }

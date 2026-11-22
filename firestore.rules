@@ -99,11 +99,11 @@ service cloud.firestore {
     match /agenda_anexo/{id} {
       allow get: if resource.data.exp is number && request.time.toMillis() < resource.data.exp;
       allow create: if podeEditarAgenda()
-        && request.resource.data.keys().hasOnly(['nome', 'tam', 'tipo', 'b64', 'exp', 'dt', 'us', 'prot'])
+        && request.resource.data.keys().hasOnly(['nome', 'tam', 'tipo', 'b64', 'exp', 'dt', 'us', 'prot', 'st'])
         && request.resource.data.tipo == 'application/pdf'
         && request.resource.data.exp is number
-        && request.resource.data.b64 is string
-        && request.resource.data.b64.size() < 960000;
+        && ((request.resource.data.b64 is string && request.resource.data.b64.size() < 960000)
+            || (request.resource.data.st == true && !('b64' in request.resource.data)));
       allow delete: if podeEditarAgenda();
     }
     // Histórico de conferências do Diário Oficial: leitura por quem tem acesso; editores registram; só o administrador corrige ou apaga
