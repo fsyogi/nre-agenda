@@ -41,7 +41,7 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&":
 const falha = (t) => { c.innerHTML = '<div class="err">' + t + '</div><p>Peça ao NRE Londrina que envie o documento novamente.</p>'; };
 (async () => {
   const id = new URLSearchParams(location.search).get("id") || "";
-  if (!/^[a-f0-9]{48}$/.test(id)) return falha("Endereço inválido.");
+  if (!/^[a-f0-9]{20,48}$/.test(id)) return falha("Endereço inválido.");
   try {
     const d = await getDoc(doc(getFirestore(app), "agenda_anexo", id));
     if (!d.exists()) return falha("Documento não encontrado ou com prazo vencido.");
