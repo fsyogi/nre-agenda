@@ -62,12 +62,24 @@ def enviar(conta, destino, assunto, msg):
     except urllib.error.HTTPError as e:
         raise RuntimeError("EmailJS %s: %s" % (e.code, e.read().decode("utf-8", "ignore")[:160]))
 
+def ciclo_mail(d, dia):
+    """Chave do ciclo do EmailJS: mes em que o ciclo comecou (renova no dia informado)."""
+    a, m = d.year, d.month
+    if d.day < dia:
+        m -= 1
+        if m < 1: m, a = 12, a - 1
+    return "%04d-%02d" % (a, m)
+
 def contar(db):
     try:
         ref = db.collection("agenda_cfg").document("emailuso")
-        mes = agora().strftime("%Y-%m"); snap = ref.get(); d = snap.to_dict() if snap.exists else {}
+        snap = ref.get(); d = snap.to_dict() if snap.exists else {}
+        try: dia = int(d.get("dia") or 21)
+        except Exception: dia = 21
+        if not 1 <= dia <= 28: dia = 21
+        mes = ciclo_mail(agora(), dia)
         n = (int(d.get("n", 0)) if d.get("mes") == mes else 0) + 1
-        ref.set({"mes": mes, "n": n})
+        ref.set({"mes": mes, "n": n, "dia": dia})
     except Exception as e:
         print("contagem de e-mail nao registrada:", e)
 
@@ -81,11 +93,44 @@ def limpar_acessos(db):
     except Exception as e:
         print("limpeza de acessos nao feita:", e)
 
+def abrir_bucket():
+    sa = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+    if not sa: return None
+    from google.oauth2 import service_account
+    from google.cloud import storage
+    info = json.loads(sa)
+    cred = service_account.Credentials.from_service_account_info(info)
+    return storage.Client(project=info.get("project_id", "nre-agenda"), credentials=cred).bucket(info.get("project_id", "nre-agenda") + ".firebasestorage.app")
+
+def limpar_vencidos(db):
+    """Apaga documentos enviados por link (e o PDF no Storage) e backups com validade vencida."""
+    agora_ms = ms(agora()); bucket = None; na = nb = np = 0
+    try:
+        for d in db.collection("agenda_anexo").where("exp", "<", agora_ms).limit(300).stream():
+            x = d.to_dict() or {}
+            if x.get("st") is True:
+                try:
+                    bucket = bucket or abrir_bucket()
+                    b = bucket.blob("anexos/" + d.id + ".pdf")
+                    if b.exists(): b.delete(); np += 1
+                except Exception as e:
+                    print("PDF do Storage nao apagado (", d.id[:8], "):", str(e)[:120]); continue
+            d.reference.delete(); na += 1
+    except Exception as e:
+        print("limpeza de anexos nao feita:", e)
+    try:
+        for d in db.collection("agenda_backup").where("exp", "<", agora_ms).limit(100).stream():
+            d.reference.delete(); nb += 1
+    except Exception as e:
+        print("limpeza de backups vencidos nao feita:", e)
+    if na or nb: print("vencidos apagados: %d anexos (%d PDFs no Storage), %d backups" % (na, np, nb))
+    if na or nb: log_robo(db, "Exclusão", "Limpeza automática", "Vencidos", "%d documentos por link, %d PDFs, %d backups com validade vencida" % (na, np, nb))
+
 def main():
     db = abrir_db()
     if not db: print("sem credencial do Firebase"); return
     testar = os.environ.get("BACKUP_SO_TESTAR") == "1"
-    if not testar: limpar_acessos(db)
+    if not testar: limpar_acessos(db); limpar_vencidos(db)
     cfg = (db.collection("agenda_cfg").document("backup").get().to_dict() or {})
     lista = cfg.get("list") or []
     hist = cfg.get("hist") or []

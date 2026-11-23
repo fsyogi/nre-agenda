@@ -15,3 +15,9 @@ Roda de segunda a sexta, às 07:30 (Brasília), no GitHub Actions.
 4. Actions, "Robo diario", Run workflow, para a primeira execução manual.
 
 Sem o segredo, o robô roda em modo simulação (só consulta os sites, não lê nem grava o Firestore).
+
+## Rotinas de manutenção e avisos (v22.0)
+
+- `backup.py` (a cada hora): além do backup, apaga os registros de Acesso do Logs com mais de 90 dias e os documentos por link e backups com validade vencida (incluindo o PDF em `anexos/` no Storage).
+- `avisos.py` (segunda a sexta, 08:00): lembrete ao servidor na véspera do atendimento e relatório mensal. Ligados e configurados em Configurações, Avisos automáticos (começam desligados). Para ver o que enviaria sem enviar: Actions, "Avisos automaticos por e-mail", Run workflow, so_testar = 1.
+- A contagem de e-mails (`agenda_cfg/emailuso`) segue o ciclo do EmailJS, com dia de renovação configurável (padrão 21). Os avisos param antes de a cota acabar e reservam 10 envios para o backup.
