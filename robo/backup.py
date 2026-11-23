@@ -9,7 +9,7 @@ from robo import TZ, agora, nowstr, abrir_db
 
 DIAS_LINK = 7
 LIMITE_B64 = 940000
-BASE = "https://fsyogi.github.io/nre-agenda/"
+BASE = "https://agendanre.web.app/"
 COLECOES = [("ag", "ag"), ("obs", "obs"), ("canc", "canc"), ("dia", "dia"), ("cfg", "cfg"), ("cad", "cad"), ("atd", "atd"), ("conf", "cf")]
 
 def ms(dt): return int(dt.timestamp() * 1000)
