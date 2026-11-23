@@ -248,7 +248,7 @@ function telaAuth(modo) {
       ${recuperar ? `<h2>Recuperar senha</h2><p class="suave">Informe seu usuário ou o e-mail da conta. Enviaremos um link para criar uma nova senha.</p>` : ""}
       ${criar ? `<div class="campo"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" required></div>` : ""}
       ${criar ? `<div class="campo"><label for="unidade">Unidade</label><select id="unidade" required><option value="">Selecione…</option>${UNIDADES.map((u) => `<option value="${u}">${u}</option>`).join("")}</select></div>` : ""}
-      ${criar ? `<div class="campo"><label for="usuario">Nome de usuário</label><input id="usuario" autocomplete="username" autocapitalize="none" placeholder="ex.: maria.pezente" required><small class="suave">Use letras minúsculas, números, ponto, hífen ou sublinhado (de 3 a 30 caracteres). É com ele que você vai entrar.</small></div>` : ""}
+      ${criar ? `<div class="campo"><label for="usuario">Nome de usuário</label><input id="usuario" autocomplete="username" autocapitalize="none" placeholder="ex.: maria.pezente" required><small class="suave">Use letras minúsculas, números, ponto, hífen ou sublinhado (de 3 a 30 caracteres). É com ele que você vai entrar. Se o administrador já definiu um usuário para o seu e-mail, ele será o usado.</small></div>` : ""}
       <div class="campo"><label for="email">${criar ? "E-mail (liberado pelo administrador)" : "Usuário ou e-mail"}</label><input id="email" ${criar ? 'type="email" autocomplete="email"' : 'type="text" autocomplete="username" autocapitalize="none"'} required></div>
       ${recuperar ? "" : `<div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="${criar ? "new-password" : "current-password"}" required></div>`}
       ${criar ? `<div class="campo"><label for="senha2">Repita a senha</label><input id="senha2" type="password" autocomplete="new-password" required></div>
@@ -299,7 +299,14 @@ function telaAuth(modo) {
         criandoConta = true;
         const cred = await createUserWithEmailAndPassword(auth, email, form.senha.value);
         try {
-          await setDoc(doc(db, "logins", usuarioNome), { email, uid: cred.user.uid, unidade });
+          // se o administrador já definiu o usuário deste e-mail, ele prevalece sobre o digitado
+          let usuFinal = usuarioNome;
+          try {
+            const au = await getDoc(doc(db, "autorizados", email));
+            const def = au.exists() ? String(au.data().usuario || "").toLowerCase() : "";
+            if (/^[a-z0-9._-]{3,30}$/.test(def) && !(await getDoc(doc(db, "logins", def))).exists()) usuFinal = def;
+          } catch (_) {}
+          await setDoc(doc(db, "logins", usuFinal), { email, uid: cred.user.uid, unidade });
         } catch (e2) {
           console.error(e2);
           try { await deleteUser(cred.user); } catch (_) {}
@@ -438,6 +445,7 @@ function viewUsuarios() {
       <h2>Liberar novo e-mail</h2>
       <form id="f-liberar" class="grade" novalidate>
         <div><label for="l-nome">Nome (opcional)</label><input id="l-nome" autocomplete="off"></div>
+        <div><label for="l-usuario">Usuário (login)</label><input id="l-usuario" autocomplete="off" autocapitalize="none" placeholder="ex.: maria.pezente"></div>
         <div><label for="l-email">E-mail</label><input id="l-email" type="email" autocomplete="off" required></div>
         <div><label for="l-perfil">Perfil</label>
           <select id="l-perfil">${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === "consulta" ? "selected" : ""}>${v}</option>`).join("")}</select></div>
@@ -460,11 +468,11 @@ function viewUsuarios() {
 
   function linhas() {
     const mapa = new Map();
-    aut.forEach((d, email) => mapa.set(email, { email, nome: d.nome || "", perfil: d.perfil, unidade: d.unidade || "", uid: null, cadastrado: false, noAut: true }));
+    aut.forEach((d, email) => mapa.set(email, { email, nome: d.nome || "", usuario: d.usuario || "", perfil: d.perfil, unidade: d.unidade || "", uid: null, cadastrado: false, noAut: true }));
     usr.forEach((u) => {
       const email = String(u.email || "").toLowerCase();
       const base = mapa.get(email) || { email, noAut: false };
-      mapa.set(email, { ...base, email, nome: u.nome || base.nome || "", perfil: u.perfil, unidade: u.unidade || base.unidade || "", uid: u.uid, cadastrado: true });
+      mapa.set(email, { ...base, email, usuario: base.usuario || "", nome: u.nome || base.nome || "", perfil: u.perfil, unidade: u.unidade || base.unidade || "", uid: u.uid, cadastrado: true });
     });
     return [...mapa.values()].sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email, "pt-BR"));
   }
@@ -477,7 +485,7 @@ function viewUsuarios() {
         const eu = r.uid === perfil.uid;
         return `<tr data-email="${esc(r.email)}" data-uid="${esc(r.uid || "")}">
           <td>${esc(r.nome || "—")}${eu ? ' <span class="suave">(você)</span>' : ""}</td>
-          <td>${r.uid && logs.get(r.uid) ? esc(logs.get(r.uid)) : "—"}</td>
+          <td>${esc((r.uid && logs.get(r.uid)) || r.usuario || "—")}</td>
           <td>${esc(r.email)}</td>
           <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
             ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
@@ -500,8 +508,12 @@ function viewUsuarios() {
     if (!emailValido(email)) return aviso(msgL, "erro", "Informe um e-mail válido.");
     if ([...usr.values()].some((u) => String(u.email).toLowerCase() === email))
       return aviso(msgL, "info", "Este e-mail já está cadastrado. Para mudar o acesso, altere o perfil na tabela.");
+    const usu = f["l-usuario"].value.trim().toLowerCase();
+    if (usu && !/^[a-z0-9._-]{3,30}$/.test(usu)) return aviso(msgL, "erro", "Usuário inválido. Use de 3 a 30 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.");
     try {
+      if (usu && (await getDoc(doc(db, "logins", usu))).exists()) return aviso(msgL, "erro", "Este nome de usuário já está em uso. Escolha outro.");
       await setDoc(doc(db, "autorizados", email), {
+        ...(usu ? { usuario: usu } : {}),
         perfil: f["l-perfil"].value,
         nome: f["l-nome"].value.trim(),
         unidade: f["l-unidade"].value,
