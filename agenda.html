@@ -213,7 +213,7 @@ function holGen(y){
   const l=[[y+'-01-01',N,'Confraternização Universal'],[addDays(E,-48),P,'Segunda-feira de Carnaval'],[addDays(E,-47),P,'Terça-feira de Carnaval'],[addDays(E,-46),P,'Quarta-feira de Cinzas'],[addDays(E,-2),N,'Paixão de Cristo (Sexta-feira Santa)'],[y+'-04-21',N,'Tiradentes'],[y+'-05-01',N,'Dia do Trabalho'],[addDays(E,60),M,'Corpus Christi'],[addDays(E,68),M,'Sagrado Coração de Jesus – Padroeiro de Londrina'],[y+'-09-07',N,'Independência do Brasil'],[y+'-10-12',N,'Nossa Senhora Aparecida'],[y+'-11-02',N,'Finados'],[y+'-11-15',N,'Proclamação da República'],[y+'-11-20',N,'Dia Nacional de Zumbi e da Consciência Negra'],[y+'-12-10',M,'Aniversário de Londrina'],[y+'-12-19',P,'Emancipação Política do Paraná (confirmar decreto estadual)'],[y+'-12-25',N,'Natal']];
   return l.filter(x=>isWeekday(x[0])).map(x=>({d:x[0],t:x[1],x:x[2]})).sort((a,b)=>a.d.localeCompare(b.d));
 }
-const ferAnos=()=>(cfg.feriados&&Array.isArray(cfg.feriados.anos))?cfg.feriados.anos:[Y0];
+const ferAnos=()=>(cfg.feriados&&Array.isArray(cfg.feriados.anos))?cfg.feriados.anos:[2027];
 let _ens={};
 function ensureYear(y){
   if(!(y>=Y0&&y<=Y1)||ferAnos().includes(y)||_ens[y])return;
