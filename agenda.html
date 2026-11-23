@@ -455,7 +455,7 @@ document.addEventListener('mousedown',e=>{if(document.body.classList.contains('s
 /* lista da agenda: ao entrar no sistema (e ao voltar ao mês atual) o dia de hoje, ou o próximo dia com agenda, fica no topo da tela */
 function scrollHoje(){const t=iso(new Date());if(+t.slice(0,4)!==S.cy||+t.slice(5,7)-1!==S.month)return;
   const el=[...document.querySelectorAll('#view .lday .lh[data-day]')].map(e=>e.closest('.lday')).find(b=>b.querySelector('.lh').dataset.day>=t);
-  if(el){el.style.scrollMarginTop='8px';el.scrollIntoView({block:'start'})}}
+  if(el){el.style.scrollMarginTop=((document.querySelector('header')||{offsetHeight:0}).offsetHeight+10)+'px';el.scrollIntoView({block:'start'})}}
 function render(){
   try{pfOverlay()}catch(e){}
   const f={inicio:vIni,dia:vDia,cal:vCal,cad:vCad,atd:vAtd,doe:vDoe,busca:vBusca,rel:vRel,serv:vServ,canc:vCanc,backup:vBackup,sobre:vSobre}[S.view];
