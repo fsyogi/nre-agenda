@@ -655,11 +655,37 @@ async function legMigra(lid,cp,over,atdId){
   if(lid&&cad[lid])await del('cad',lid);
   return true
 }
+/* Retomar atendimento: lista os atendimentos já abertos da pessoa do agendamento (CPF, RG do cadastro ou mesmo nome) */
+function atdsDaPessoa(p){
+  const dg=digits(p.cpf||''),rg=digits(p.rg||''),nm=norm(p.nome||'');
+  const ids=new Set();
+  Object.values(cad).forEach(c=>{if(!c)return;if((dg.length===11&&digits(c.cpf)===dg)||(rg.length>=5&&digits(c.rg)===rg))ids.add(c.id)});
+  const out=[];
+  atdList().forEach(x=>{
+    const porCpf=dg.length===11&&digits(x.cpf)===dg;
+    const porCad=x.cadId&&ids.has(x.cadId)||(ids.has(digits(x.cpf)));
+    const porNome=!porCpf&&!porCad&&nm&&norm(x.nome||'')===nm;
+    if(porCpf||porCad||porNome)out.push({x,nome:porNome});
+  });
+  return out.sort((a,b)=>String(b.x.autuacao||'').localeCompare(String(a.x.autuacao||''))||(b.x.seq||0)-(a.x.seq||0));
+}
+function retomarAtd(p){
+  const l=atdsDaPessoa(p);
+  const w=document.createElement('div');w.className='modalbg on';w.style.zIndex=40;w.style.alignItems='center';
+  const lin=l.map(({x,nome})=>`<tr><td style="white-space:nowrap">${esc(atdDate(x.autuacao))}</td><td><b>${esc(x.protocolo)}</b>${x.eprot?`<div style="color:var(--mut);font-size:12px">${esc(x.eprot)}</div>`:''}${nome?'<div style="color:var(--mut);font-size:12px">vínculo pelo nome</div>':''}</td><td>${esc(x.servico||'')}</td><td>${atdStTag(x)}</td><td><button class="btn pri sm" type="button" data-abrir="${esc(x.id)}">Abrir</button></td></tr>`).join('');
+  w.innerHTML=`<div class="modal" role="dialog" aria-modal="true" style="max-width:760px"><h3 style="margin-top:0">Retomar atendimento</h3><p style="margin:0 0 10px;color:var(--mut);font-size:14px">${esc(p.nome||'')} · ${l.length?l.length+' atendimento(s) já aberto(s)':'nenhum atendimento aberto'}</p>${l.length?`<div class="tablewrap"><table><thead><tr><th>Data da autuação</th><th>Atendimento</th><th>Serviço</th><th>Status</th><th></th></tr></thead><tbody>${lin}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Esta pessoa ainda não tem atendimento aberto. Use o botão Novo atendimento.</div>'}<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" data-fechar="1">Fechar</button></div></div>`;
+  const end=()=>{w.remove();document.removeEventListener('keydown',kk,true)};
+  const kk=e=>{if(e.key==='Escape'){e.stopPropagation();end()}};
+  document.addEventListener('keydown',kk,true);
+  w.addEventListener('click',e=>{const b=e.target.closest('[data-abrir]');if(b){const id=b.dataset.abrir;end();go('atd');openAtd(id);return}if(e.target.closest('[data-fechar]')||e.target===w)end()});
+  document.body.appendChild(w);
+}
+
 function openSlot(id){
   const s=slotInfo(id);const r=ag[id]||{};const LU=window.__user||'';
   if(s.blk&&!ag[id]){toast(s.blk.feriado?'Horário sem atendimento: '+s.blk.t+(s.blk.o?' – '+s.blk.o:''):'Horário bloqueado: '+s.blk.t+' de '+attName(s.att));return}
   const opts=(r.por&&!attNames().includes(r.por)?attNames().concat(r.por):attNames()).map(a=>`<option ${r.por===a?'selected':''}>${esc(a)}</option>`).join('');
-  $('#modal').innerHTML=`<div style="display:flex;align-items:center;gap:10px;justify-content:space-between"><h3 style="margin:0">${r.nome?'Editar agendamento':'Novo agendamento'}</h3>${r.nome?`<span style="display:flex;gap:8px;align-items:center">${waBtn(r,'sm')}<button class="btn pri sm" type="button" id="b_natd" title="Criar um novo atendimento com os dados deste agendamento">Novo atendimento</button></span>`:''}</div>
+  $('#modal').innerHTML=`<div style="display:flex;align-items:center;gap:10px;justify-content:space-between"><h3 style="margin:0">${r.nome?'Editar agendamento':'Novo agendamento'}</h3>${r.nome?`<span style="display:flex;gap:8px;align-items:center">${waBtn(r,'sm')}<button class="btn sm" type="button" id="b_ratd" title="Ver os atendimentos já abertos desta pessoa e retomar um deles">Retomar atendimento</button><button class="btn pri sm" type="button" id="b_natd" title="Criar um novo atendimento com os dados deste agendamento">Novo atendimento</button></span>`:''}</div>
   <div style="color:var(--mut);margin-bottom:14px">${WD[wdOf(s.date)]}, ${br(s.date)}</div>
   <form id="frm" autocomplete="off"><div class="f2">
    <div class="full" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
@@ -762,7 +788,7 @@ cel.oninput=()=>{cel.value=maskCel(cel.value)};chk();
     ensureYear(+d.slice(0,4));const fr=rgFree(d);let msg='';if(!isWeekday(d))msg='Sem atendimento em fim de semana';else if(HOL[d])msg=HOL[d][0]+' – sem atendimento';else if(!fr.length)msg='Sem horário livre neste dia';
     sel.innerHTML=`<option value="">${fr.length?'Selecione…':'—'}</option>`+fr.map(x=>`<option value="${x.id}">${x.time} · ${esc(attName(x.att))}</option>`).join('');sel.disabled=!fr.length;if(msg){m.textContent=msg;m.style.display='block'}};
   $('#f_rs').onchange=()=>{rgSid=$('#f_rs').value;const sl=rgSid?slotsFor($('#f_rd').value).find(x=>x.id===rgSid):null;$('#f_ra').innerHTML=sl?'Atendente do dia: <b>'+esc(attName(sl.att))+'</b>':''};
-  if(r.nome){$('#b_natd').onclick=async()=>{const pre={cpf:$('#f_cpf').value.trim()||r.cpf||'',nome:($('#f_nome').value.trim()||r.nome||'').toLocaleUpperCase('pt-BR'),servico:$('#f_serv').value||r.servico||''};const cur=ag[id]||r;if(stOf(cur)!=='Atendido'){if(!(await save('ag',id,{...cur,status:'Atendido'})))return;toast('Agendamento marcado como Atendido')}closeModal();go('atd');openAtd(null,pre)}}
+  if(r.nome){$('#b_ratd').onclick=()=>retomarAtd({cpf:$('#f_cpf').value.trim()||r.cpf||'',rg:r.rg||'',nome:($('#f_nome').value.trim()||r.nome||'')});$('#b_natd').onclick=async()=>{const pre={cpf:$('#f_cpf').value.trim()||r.cpf||'',nome:($('#f_nome').value.trim()||r.nome||'').toLocaleUpperCase('pt-BR'),servico:$('#f_serv').value||r.servico||''};const cur=ag[id]||r;if(stOf(cur)!=='Atendido'){if(!(await save('ag',id,{...cur,status:'Atendido'})))return;toast('Agendamento marcado como Atendido')}closeModal();go('atd');openAtd(null,pre)}}
   if(r.nome){$('#b_del').onclick=async()=>{if(!await askYesNo('Excluir cadastro','Tem certeza que deseja excluir este cadastro?'))return;if(await del('ag',id)){closeModal();toast('Cadastro excluído')}}}
   {const fn=$('#f_nome');if(fn)fn.addEventListener('input',()=>{const a=fn.selectionStart,b=fn.selectionEnd,u=fn.value.toLocaleUpperCase('pt-BR');if(u!==fn.value){fn.value=u;try{fn.setSelectionRange(a,b)}catch(e){}}})}
   setTimeout(()=>{const n=$(r.nome?'#f_nome':'#f_cpf');if(n)n.focus()},50);
