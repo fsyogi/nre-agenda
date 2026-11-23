@@ -28,7 +28,7 @@ embed,iframe{width:100%;height:75vh;border:1px solid #d5dbe0;border-radius:6px;m
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app = initializeApp({
   apiKey: "AIzaSyAelqHRND1PbEkq6F_--tuA1ayqmGB2nC8",
   authDomain: "nre-agenda.firebaseapp.com",
@@ -48,6 +48,7 @@ const falha = (t) => { c.innerHTML = '<div class="err">' + t + '</div><p>Peça a
     if (!d.exists()) return falha("Documento não encontrado ou com prazo vencido.");
     const x = d.data();
     if ((!x.b64 && !x.st) || (x.exp && Date.now() > x.exp)) return falha("Este documento está com o prazo vencido.");
+    try { const agora = Date.now(); await updateDoc(d.ref, { vis: x.vis || agora, nvis: (x.nvis || 0) + 1, visUlt: agora }); } catch (_) {}
     let url, tam = x.tam || 0;
     if (x.st) {
       url = await getDownloadURL(ref(getStorage(app), "anexos/" + id + ".pdf"));

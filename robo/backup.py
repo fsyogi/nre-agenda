@@ -5,7 +5,7 @@ Variaveis: FIREBASE_SERVICE_ACCOUNT, EMAILJS_PRIVATE_KEY (so para enviar), BACKU
 import os, sys, json, gzip, base64, re, secrets, urllib.request, urllib.error, html
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
-from robo import TZ, agora, nowstr, abrir_db
+from robo import TZ, agora, nowstr, abrir_db, log_robo
 
 DIAS_LINK = 7
 LIMITE_B64 = 940000
@@ -71,10 +71,21 @@ def contar(db):
     except Exception as e:
         print("contagem de e-mail nao registrada:", e)
 
+def limpar_acessos(db):
+    """Apaga do Logs os registros de Acesso com mais de 90 dias."""
+    try:
+        corte = int((agora().timestamp() - 90 * 86400) * 1000); n = 0
+        for d in db.collection("agenda_log").where("ts", "<", corte).limit(400).stream():
+            if (d.to_dict() or {}).get("acao") == "Acesso": d.reference.delete(); n += 1
+        if n: print("acessos antigos apagados do Logs:", n)
+    except Exception as e:
+        print("limpeza de acessos nao feita:", e)
+
 def main():
     db = abrir_db()
     if not db: print("sem credencial do Firebase"); return
     testar = os.environ.get("BACKUP_SO_TESTAR") == "1"
+    if not testar: limpar_acessos(db)
     cfg = (db.collection("agenda_cfg").document("backup").get().to_dict() or {})
     lista = cfg.get("list") or []
     hist = cfg.get("hist") or []
@@ -114,6 +125,7 @@ def main():
             except Exception:
                 db.collection("agenda_backup").document(bid).delete(); raise
             contar(db)
+            log_robo(db, "Envio", "E-mail", "Backup automático", "Para: " + dest + " | gerado pelo robô")
             hist += [{"id": bid, "exp": exp}, {"id": claim, "exp": occ + 8 * 86400000}]
             it["ult"] = occ; it["ultEm"] = nowstr() + " (robô)"; it["err"] = ""
             print("backup enviado para", dest); mudou = True

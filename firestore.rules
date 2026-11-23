@@ -104,6 +104,11 @@ service cloud.firestore {
         && request.resource.data.exp is number
         && ((request.resource.data.b64 is string && request.resource.data.b64.size() < 960000)
             || (request.resource.data.st == true && !('b64' in request.resource.data)));
+      // quem abre o documento (tem o código) só pode registrar a abertura: primeira vez, contagem e última vez
+      allow update: if resource.data.exp is number && request.time.toMillis() < resource.data.exp
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vis', 'nvis', 'visUlt'])
+        && request.resource.data.vis is number && request.resource.data.visUlt is number
+        && request.resource.data.nvis is number && request.resource.data.nvis >= 1 && request.resource.data.nvis <= 9999;
       allow delete: if podeEditarAgenda();
     }
     // Histórico de conferências do Diário Oficial: leitura por quem tem acesso; editores registram; só o administrador corrige ou apaga

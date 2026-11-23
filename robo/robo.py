@@ -139,6 +139,16 @@ def pg_txt(p):
     return "páginas %s e %s" % (p, p + 1)
 
 # ---------------- Firestore ----------------
+def log_robo(db, acao, onde, ref, det):
+    """Registra no Logs do sistema (agenda_log) uma acao do robo."""
+    try:
+        import secrets as _s
+        ts = int(datetime.now(TZ).timestamp() * 1000); lid = "%d_%s" % (ts, _s.token_hex(2))
+        db.collection("agenda_log").document(lid).set({"id": lid, "ts": ts, "em": agora().strftime("%d/%m/%Y %H:%M:%S"),
+            "por": NOME_ROBO, "acao": acao, "onde": onde, "ref": ref, "det": str(det)[:900]})
+    except Exception as e:
+        print("log nao registrado:", e)
+
 def abrir_db():
     sa = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
     if not sa: return None
@@ -269,6 +279,7 @@ def main():
                 from google.cloud import firestore
                 firestore.transactional(aplicar2)(db.transaction())
                 m["estado"] = "pub" if tipo == "consta" else "conf"
+                log_robo(db, "Alteração", "Atendimento", it["id"][:8] + " · " + str(it.get("nome", "")), ("Publicação localizada no Diário Oficial nº " if tipo == "consta" else "Possível publicação a confirmar, edição nº ") + str(e.get("numero")) + ", página " + str(pag))
         if mudou and status["doeOk"]:
             conf["em"] = nowstr(); conf["us"] = NOME_ROBO
             if db: db.collection("agenda_conf").document(cid).set(conf)
@@ -277,6 +288,7 @@ def main():
     if not status["ok"]: status["erro"] = "Falha ao consultar " + ("e-Protocolo " if not status["eprotOk"] else "") + ("Diário Oficial" if not status["doeOk"] else "")
     print("status:", json.dumps({k: v for k, v in status.items()}, ensure_ascii=False))
     if db:
+        log_robo(db, "Consulta", "Diário Oficial", "e-Protocolo e Diário Oficial", ("Concluída" if status["ok"] else "Com falha: " + str(status.get("erro") or "")) + " | edições conferidas: " + str(status.get("editoes", 0)))
         db.collection("agenda_cfg").document("robo").set(status)
         ped = db.collection("agenda_cfg").document("robo_pedido")
         if (ped.get().to_dict() or {}).get("estado") == "pendente":
