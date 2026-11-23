@@ -1442,7 +1442,7 @@ function histAviso(rg){
 function vHist(){
   if(!HIST&&HISTST!=='carregando'&&HISTST!=='negado'&&HISTST!=='vazio')histLoad();
   if(HISTST==='negado')return '<div class="card"><div class="empty">Sem permissão para ler a base de consulta antiga (regra agenda_hist ainda não publicada).</div></div>';
-  if(HISTST==='vazio')return '<div class="card"><div class="empty">A base de consulta antiga ainda não foi carregada.</div></div>';
+  if(HISTST==='vazio')return '<div class="card"><div class="empty">A base de consulta antiga ainda não foi carregada.</div>'+(canLixo()&&window.__fsdb?'<div style="margin-top:12px">Carga única (administrador): <input type="file" id="hfile" accept=".json"></div>':'')+'</div>';
   if(!HIST)return '<div class="card"><div class="empty">Carregando…</div></div>';
   const q=norm(S.hq||''),qd=digits(S.hq||'');const fs=S.hs||'';
   const sts=uniq(HIST.map(x=>x.s)).sort();
@@ -1456,6 +1456,7 @@ function vHist(){
   <table><thead><tr><th>Atend.</th><th>e-Protocolo</th><th>Nome</th><th>RG</th><th>Tipo</th><th>Escola</th><th>Situação</th><th>Procurador</th><th>Atendente</th></tr></thead><tbody>${tb||'<tr><td colspan="9" class="empty">Nada encontrado.</td></tr>'}</tbody></table>
   <div style="margin-top:10px;display:flex;gap:8px"><button class="btn" id="hprev" ${S.hpg<=0?'disabled':''}>‹ Anterior</button><button class="btn" id="hnext" ${S.hpg>=tp-1?'disabled':''}>Próxima ›</button></div></div></div>`;
 }
+document.addEventListener('change',async e=>{if(e.target.id==='hfile'&&canLixo()&&window.__fsdb){const f=e.target.files[0];if(!f)return;try{const L=JSON.parse(await f.text());let n=0;for(const c of L){const d=await db.collection('hist').doc(c.id).get();if(d.exists)continue;await db.collection('hist').doc(c.id).set(Object.assign({},c.doc,{ts:Date.now()}));n+=c.doc.n}toast(n+' registros gravados');HIST=null;HISTST='';render()}catch(x){toast('Falha na carga: '+(x.code||x.message))}}});
 document.addEventListener('change',e=>{if(e.target.id==='hs'){S.hs=e.target.value;S.hpg=0;render()}});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#hprev,#hnext');if(b&&!b.disabled){S.hpg=(+S.hpg||0)+(b.id==='hnext'?1:-1);render()}});
 
