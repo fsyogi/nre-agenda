@@ -452,6 +452,10 @@ $('#sidei').addEventListener('mouseleave',()=>{tip.style.display='none'});
 new MutationObserver(()=>{if(document.body.classList.contains('sp'))tip.style.display='none'}).observe(document.body,{attributes:true,attributeFilter:['class']})}
 $('#sidei').addEventListener('click',e=>{if(!document.body.classList.contains('sp')){e.stopPropagation();e.preventDefault();document.body.classList.add('sp')}},true);
 document.addEventListener('mousedown',e=>{if(document.body.classList.contains('sp')&&!e.target.closest('#sidei')&&!e.target.closest('#hb'))document.body.classList.remove('sp')});document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('sp')});
+/* lista da agenda: ao entrar no sistema (e ao voltar ao mês atual) o dia de hoje, ou o próximo dia com agenda, fica no topo da tela */
+function scrollHoje(){const t=iso(new Date());if(+t.slice(0,4)!==S.cy||+t.slice(5,7)-1!==S.month)return;
+  const el=[...document.querySelectorAll('#view .lday .lh[data-day]')].map(e=>e.closest('.lday')).find(b=>b.querySelector('.lh').dataset.day>=t);
+  if(el){el.style.scrollMarginTop='8px';el.scrollIntoView({block:'start'})}}
 function render(){
   try{pfOverlay()}catch(e){}
   const f={inicio:vIni,dia:vDia,cal:vCal,cad:vCad,atd:vAtd,doe:vDoe,busca:vBusca,rel:vRel,serv:vServ,canc:vCanc,backup:vBackup,sobre:vSobre}[S.view];
@@ -461,6 +465,7 @@ function render(){
     const tt=$('#nav [data-v='+S.view+'] .lb');$('#ttl').textContent=tt?tt.textContent.replace(/ \(\d+\)$/,''):'';$('#hdt').textContent=WD[wdOf(iso(new Date()))]+', '+br(iso(new Date()));
   $('#view').innerHTML=f();
   if(S.view==='serv')cfgGate();
+  if(S._sh&&S.view==='cal'&&S.calMode==='lista'&&(!db||(loaded.ag&&loaded.dia&&loaded.cfg))){S._sh=false;scrollHoje()}
   if(keep&&['q','cq','sq','lq','cadq','atdq','doeq','hq'].includes(keep)){const el=document.getElementById(keep);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}}
 }
 
@@ -2592,7 +2597,7 @@ document.addEventListener('click',e=>{
   const sl=t.closest('[data-slot]');if(sl&&(S.view==='dia'||(S.view==='cal'&&S.calMode==='dia'))){if(!HOL[S.date])openSlot(sl.dataset.slot);return}
   const dy=t.closest('[data-day]');if(dy){go('dia',{date:dy.dataset.day});return}
   const cm=t.closest('[data-calmode]');if(cm){S.calMode=cm.dataset.calmode;if(S.calMode!=='dia'){S.cy=+S.date.slice(0,4);S.month=+S.date.slice(5,7)-1}ensureYear(+S.date.slice(0,4));render();return}
-  const mo=t.closest('[data-month]');if(mo){S.month=+mo.dataset.month;render();return}
+  const mo=t.closest('[data-month]');if(mo){S.month=+mo.dataset.month;{const t=iso(new Date());if(+t.slice(0,4)===S.cy&&+t.slice(5,7)-1===S.month)S._sh=true}render();return}
   const fd=t.closest('[data-find]');if(fd){const [d,id]=fd.dataset.find.split('|');if(S.view==='cal'&&S.calMode!=='dia'){openSlot(id);return}go('dia',{date:d});openSlot(id);return}
   const rp=t.closest('[data-rp]');if(rp){const f=S.rel||(S.rel=relDefaults());const d=S.date;
     if(rp.dataset.rp==='dia'){f.from=f.to=d}
@@ -2757,7 +2762,7 @@ document.addEventListener('keydown',e=>{const t=e.target;if(e.key==='Enter'&&t.t
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='wm_texto'){const pv=document.getElementById('wm_prev');if(pv)pv.textContent=waMsg(WA_EX(),t.value)}if(t.id==='q'){S.q=t.value;render()}if(t.id==='cq'){S.cq=t.value;render()}if(t.id==='sq'){S.sq=t.value;render()}if(t.id==='lq'){S.lq=t.value;render()}if(t.id==='cadq'){S.cadq=t.value;render()}if(t.id==='atdq'){S.atdq=t.value;render()}if(t.id==='doeq'){S.doeq=t.value;render()}if(t.id==='hq'){S.hq=t.value;S.hpg=0;render()}});
 
 /* ---------- início ---------- */
-(function(){const t=iso(new Date());const yr=Math.min(Y1,Math.max(Y0,+t.slice(0,4)));const hg=new Set(holGen(yr).map(x=>x.d));const bad=x=>!isWeekday(x)||HOL[x]||hg.has(x);let d=(+t.slice(0,4)===yr)?t:yr+'-01-01';let k=0;while(bad(d)&&k++<40)d=addDays(d,1);if(d.slice(0,4)!==String(yr)){d=yr+'-01-01';while(bad(d))d=addDays(d,1)}S.date=d;S.cy=+S.date.slice(0,4);S.month=+S.date.slice(5,7)-1;render()})();
+(function(){const t=iso(new Date());const yr=Math.min(Y1,Math.max(Y0,+t.slice(0,4)));const hg=new Set(holGen(yr).map(x=>x.d));const bad=x=>!isWeekday(x)||HOL[x]||hg.has(x);let d=(+t.slice(0,4)===yr)?t:yr+'-01-01';let k=0;while(bad(d)&&k++<40)d=addDays(d,1);if(d.slice(0,4)!==String(yr)){d=yr+'-01-01';while(bad(d))d=addDays(d,1)}S.date=d;S.cy=+S.date.slice(0,4);S.month=+S.date.slice(5,7)-1;S._sh=true;render()})();
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
