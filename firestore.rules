@@ -72,6 +72,13 @@ service cloud.firestore {
     match /agenda_cad/{id}  { allow read: if temAcesso(); allow write: if podeEditarAgenda(); }
     // Atendimento: um registro existente só pode ser regravado por quem tem a mesma marca de criação (tok).
     // Assim, dois usuários que sortearem o mesmo protocolo ao mesmo tempo não se sobrescrevem: o segundo é recusado e o sistema sorteia outro número.
+    // Base de consulta (histórico da planilha antiga): leitura para quem tem acesso, só inclusão, nunca altera nem apaga
+    match /agenda_hist/{id} {
+      allow read: if temAcesso();
+      allow create: if podeEditarAgenda() && !exists(/databases/$(database)/documents/agenda_hist/$(id));
+      allow update, delete: if false;
+    }
+
     match /agenda_atd/{id}  {
       allow read: if temAcesso();
       allow create: if podeEditarAgenda();
