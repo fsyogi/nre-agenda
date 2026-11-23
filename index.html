@@ -497,7 +497,7 @@ function viewUsuarios() {
   }
 
   const falha = (e) => { console.error(e); tabela.innerHTML = `<p class="msg erro" style="display:block">${esc(msgErro(e))}</p>`; };
-  desinscrever.push(onSnapshot(collection(db, "logins"), (s) => { logs = new Map(s.docs.map((d) => [d.data().uid, d.id])); desenhar(); }, (e) => { console.warn("Nomes de usuário indisponíveis", e); }));
+  desinscrever.push(onSnapshot(collection(db, "logins"), (s) => { logs = new Map(s.docs.map((d) => [d.data().uid, d.id])); desenhar(); }, (e) => { console.warn("Nomes de usuário indisponíveis", e); const m = c.querySelector("#msg-liberar"); if (m) aviso(m, "info", "Não foi possível ler os nomes de usuário já criados (" + (e && e.code ? e.code : "erro") + "). Confira se as regras do Firestore mais recentes foram publicadas."); }));
   desinscrever.push(onSnapshot(collection(db, "autorizados"), (s) => { aut = new Map(s.docs.map((d) => [d.id, d.data()])); desenhar(); }, falha));
   desinscrever.push(onSnapshot(collection(db, "usuarios"), (s) => { usr = new Map(s.docs.map((d) => [d.id, { uid: d.id, ...d.data() }])); desenhar(); }, falha));
 
