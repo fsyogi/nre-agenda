@@ -197,15 +197,16 @@ def main():
         it["linhas"] = len(linhas); it["resolucao"] = bool(res)
         print(" %s: %d andamentos, novos %d, emitir resolucao: %s" % (it["id"][:6], len(linhas), len(novas), "sim" if res else "nao"))
         if not db or not ult: continue
-        ands = []
-        if vistos == 0:
-            ands.append("e-Protocolo: acompanhamento iniciado, último andamento em %s, de %s para %s, motivo %s" % (ult["data"][:10], ult["de"], ult["para"], ult["motivo"]))
-        else:
-            for l in novas:
-                ands.append("e-Protocolo: %s, de %s para %s, motivo %s" % (l["data"][:10], l["de"], l["para"], l["motivo"]))
+        # a consulta ao e-Protocolo e silenciosa: so entra andamento no atendimento quando surge
+        # uma movimentacao com motivo "emitir resolucao" (para Portarias e Resolucoes); as demais
+        # apenas atualizam o controle interno (ultimo andamento visto), sem registro no historico
+        ands = ["e-Protocolo: %s, de %s para %s, motivo %s" % (l["data"][:10], l["de"], l["para"], l["motivo"])
+                for l in novas if eh_resolucao(l)][:1]
         novo_est = m.get("estado", "and")
-        if res and novo_est == "and": novo_est = "res"
-        if not ands and novo_est == m.get("estado", "and"): continue
+        if res and novo_est == "and":
+            novo_est = "res"
+            if not ands: ands = ["e-Protocolo: %s, de %s para %s, motivo %s" % (res["data"][:10], res["de"], res["para"], res["motivo"])]
+        if not ands and novo_est == m.get("estado", "and") and ult["seq"] == vistos: continue
         ref = db.collection("agenda_atd").document(it["id"])
         def aplicar(tx):
             snap = ref.get(transaction=tx); r = snap.to_dict() or {}
