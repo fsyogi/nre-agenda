@@ -1,0 +1,31 @@
+name: Manter robos ativos
+# O GitHub desativa tarefas agendadas de repositorio publico apos 60 dias sem atividade.
+# Esta rotina roda duas vezes por mes: registra uma atividade e reativa os robos.
+on:
+  schedule:
+    - cron: "17 6 1,15 * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  manter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Registra atividade
+        run: |
+          date -u +"%Y-%m-%d %H:%M UTC" > .github/keepalive.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive.txt
+          git commit -m "Atividade periodica para manter os robos agendados ativos" || echo "nada a registrar"
+          git push || echo "push nao permitido"
+      - name: Reativa os robos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for w in robo-diario robo-pedido robo-backup keepalive; do
+            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/$w.yml/enable" && echo "ativo: $w" || echo "falhou: $w"
+          done
