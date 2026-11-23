@@ -453,7 +453,7 @@ function viewUsuarios() {
     </section>`;
 
 
-  let aut = new Map(), usr = new Map();
+  let aut = new Map(), usr = new Map(), logs = new Map(); // logs: uid -> nome de usuário
   const pendUn = new Map(); // unidade escolhida e ainda não salva, por e-mail
   const tabela = c.querySelector("#tabela");
   const msgL = c.querySelector("#msg-liberar");
@@ -472,11 +472,12 @@ function viewUsuarios() {
   function desenhar() {
     const rs = linhas();
     if (!rs.length) { tabela.innerHTML = `<p class="suave">Nenhum usuário ainda.</p>`; return; }
-    tabela.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Unidade</th><th>Situação</th><th></th></tr></thead><tbody>
+    tabela.innerHTML = `<table><thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Unidade</th><th>Situação</th><th></th></tr></thead><tbody>
       ${rs.map((r) => {
         const eu = r.uid === perfil.uid;
         return `<tr data-email="${esc(r.email)}" data-uid="${esc(r.uid || "")}">
           <td>${esc(r.nome || "—")}${eu ? ' <span class="suave">(você)</span>' : ""}</td>
+          <td>${r.uid && logs.get(r.uid) ? esc(logs.get(r.uid)) : "—"}</td>
           <td>${esc(r.email)}</td>
           <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
             ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
@@ -488,6 +489,7 @@ function viewUsuarios() {
   }
 
   const falha = (e) => { console.error(e); tabela.innerHTML = `<p class="msg erro" style="display:block">${esc(msgErro(e))}</p>`; };
+  desinscrever.push(onSnapshot(collection(db, "logins"), (s) => { logs = new Map(s.docs.map((d) => [d.data().uid, d.id])); desenhar(); }, (e) => { console.warn("Nomes de usuário indisponíveis", e); }));
   desinscrever.push(onSnapshot(collection(db, "autorizados"), (s) => { aut = new Map(s.docs.map((d) => [d.id, d.data()])); desenhar(); }, falha));
   desinscrever.push(onSnapshot(collection(db, "usuarios"), (s) => { usr = new Map(s.docs.map((d) => [d.id, { uid: d.id, ...d.data() }])); desenhar(); }, falha));
 

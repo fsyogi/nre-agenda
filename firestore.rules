@@ -54,7 +54,7 @@ service cloud.firestore {
     // Nome de usuário -> e-mail (leitura só por consulta direta; criação só por e-mail liberado)
     match /logins/{usuario} {
       allow get: if true;
-      allow list: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow list: if request.auth != null && (resource.data.uid == request.auth.uid || ehAdmin());
       allow create: if request.auth != null
         && usuario.matches('^[a-z0-9._-]{3,30}$')
         && request.resource.data.keys().hasOnly(['email', 'uid', 'unidade'])
