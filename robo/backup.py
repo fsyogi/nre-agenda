@@ -62,6 +62,15 @@ def enviar(conta, destino, assunto, msg):
     except urllib.error.HTTPError as e:
         raise RuntimeError("EmailJS %s: %s" % (e.code, e.read().decode("utf-8", "ignore")[:160]))
 
+def contar(db):
+    try:
+        ref = db.collection("agenda_cfg").document("emailuso")
+        mes = agora().strftime("%Y-%m"); snap = ref.get(); d = snap.to_dict() if snap.exists else {}
+        n = (int(d.get("n", 0)) if d.get("mes") == mes else 0) + 1
+        ref.set({"mes": mes, "n": n})
+    except Exception as e:
+        print("contagem de e-mail nao registrada:", e)
+
 def main():
     db = abrir_db()
     if not db: print("sem credencial do Firebase"); return
@@ -104,6 +113,7 @@ def main():
             try: enviar(conta, dest, "Backup do sistema de agendamento · " + nowstr(), msg)
             except Exception:
                 db.collection("agenda_backup").document(bid).delete(); raise
+            contar(db)
             hist += [{"id": bid, "exp": exp}, {"id": claim, "exp": occ + 8 * 86400000}]
             it["ult"] = occ; it["ultEm"] = nowstr() + " (robô)"; it["err"] = ""
             print("backup enviado para", dest); mudou = True
