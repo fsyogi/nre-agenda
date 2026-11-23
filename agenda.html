@@ -631,6 +631,24 @@ async function cadDoAtd(rec,msg){
   const prev=Object.values(ag).concat(Object.values(canc)).filter(x=>x&&digits(x.cpf)===dg&&x.nome).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')))[0]||{};
   await cadDoAg({...prev,escola:rec.escola||prev.escola||'',escolaMun:rec.escola?(rec.escolaMun||''):(prev.escolaMun||''),escolaEmail:rec.escola?(rec.escolaEmail||''):(prev.escolaEmail||''),cpf:rec.cpf,nome:rec.nome,linha:rec.linha||prev.linha||'',linha2:rec.linha2||prev.linha2||'',por:window.__user||prev.por||rec.por||''},msg)
 }
+/* ---- registros legados (importados da planilha de aposentadorias, sem CPF) ---- */
+const isLeg=r=>!!(r&&r.legado&&!digits(r.cpf||''));
+function cadOf(r){return cad[digits(r&&r.cpf||'')]||(r&&r.cadId&&cad[r.cadId])||undefined}
+/* ao informar o CPF real de um legado: o cadastro passa a ter o CPF como chave e os atendimentos vinculados recebem o CPF */
+async function legMigra(lid,cp,over,atdId){
+  const dg=digits(cp);
+  if(dg.length!==11||!cpfOk(cp)){toast('Informe um CPF válido');return false}
+  if(cad[dg]){toast('Este CPF já está cadastrado em '+(cad[dg].nome||'outro cadastro')+'. Resolva a duplicidade antes de informar o CPF');return false}
+  const a0=atdId&&atd[atdId]||{};const l=(lid&&cad[lid])||{nome:a0.nome||'',linha:a0.linha||'',linha2:a0.linha2||'',escola:a0.escola||'',escolaMun:a0.escolaMun||'',escolaEmail:a0.escolaEmail||'',criadoEm:nowStr(),por:window.__user||''};
+  const n={...l,...(over||{}),id:dg,cpf:cp,atualizadoEm:nowStr()};delete n.legado;
+  if(!(await save('cad',dg,n,true)))return false;
+  for(const [id,a] of Object.entries(atd)){
+    if(!a||!((lid&&a.cadId===lid)||id===atdId))continue;
+    const b={...a,cpf:cp,atualizadoEm:nowStr()};delete b.legado;delete b.cadId;
+    if(!(await save('atd',id,b,true)))return false}
+  if(lid&&cad[lid])await del('cad',lid);
+  return true
+}
 function openSlot(id){
   const s=slotInfo(id);const r=ag[id]||{};const LU=window.__user||'';
   if(s.blk&&!ag[id]){toast(s.blk.feriado?'Horário sem atendimento: '+s.blk.t+(s.blk.o?' – '+s.blk.o:''):'Horário bloqueado: '+s.blk.t+' de '+attName(s.att));return}
@@ -882,7 +900,7 @@ const atdParado=r=>{if(monPub(r))return null;const u=andRef(r);let t=null;
   else if(r&&r.autuacao){const m=String(r.autuacao).match(/^(\d{4})-(\d\d)-(\d\d)/);if(m)t=new Date(+m[1],+m[2]-1,+m[3]).getTime()}
   return t===null?null:Math.floor((Date.now()-t)/864e5)};
 const atdLastUs=r=>{const l=andRef(r);return l&&l.us?String(l.us).trim():''};
-const atdProcTag=r=>{const c=cad[digits(r.cpf)];return c&&c.proc?` <span class="tag hol" title="${esc('Possui procurador'+(c.procNome?': '+c.procNome:''))}">Procurador</span>`:''};
+const atdProcTag=r=>{const c=cadOf(r);return c&&c.proc?` <span class="tag hol" title="${esc('Possui procurador'+(c.procNome?': '+c.procNome:''))}">Procurador</span>`:''};
 /* ---------- monitoramento de publicação no Diário Oficial (aposentadoria) ---------- */
 const pgTxt=pg=>{pg=String(pg||'').trim();return /\d\D+\d/.test(pg)?'páginas '+pg:'página '+pg};
 const prNome=n=>{const w=String(n||'').trim().split(/\s+/)[0]||'';return w.charAt(0).toLocaleUpperCase('pt-BR')+w.slice(1).toLocaleLowerCase('pt-BR')};
@@ -892,14 +910,14 @@ function monPubRec(r,p,us){
   and.push({dt:nowStr(),un:lastUn()||'',us:us||'',ds,tp:'',pb:1,lk:p.lk&&DOE_OK(p.lk)?[{t:'Acesso ao Diário',u:p.lk}]:[]});
   return {...r,and,monit:{...(r.monit||{}),estado:'pub',pubEd:p.ed,pubDt:p.dt,pubPg:p.pg,pubLk:p.lk||'',pubEm:nowStr(),pubPor:us||''},atualizadoEm:nowStr()};
 }
-function monDest(r){const c=cad[digits(r.cpf)]||{};
+function monDest(r){const c=cadOf(r)||{};
   const o=[{k:'srv',n:'Servidor',fone:c.cel,mail:c.email},{k:'esc',n:'Escola'+(r.escola?' ('+r.escola+')':''),mail:r.escolaEmail}];
   if(c.proc)o.push({k:'prc',n:'Procurador'+(c.procNome?' ('+c.procNome+')':''),fone:c.procTel,mail:c.procEmail});return o}
 function monMsg(r,d){
   const m=r.monit||{};const nm=r.nome||'';const h=new Date().getHours();const sd=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   const base='no Diário Oficial do Estado nº '+(m.pubEd||'')+', de '+(m.pubDt?br(m.pubDt):'')+', '+pgTxt(m.pubPg);
   const ep=r.eprot?' (processo e-protocolo '+r.eprot+')':'';const lk=m.pubLk?'\n\nAcesso ao Diário: '+m.pubLk:'';
-  const c=cad[digits(r.cpf)]||{};
+  const c=cadOf(r)||{};
   if(d==='srv')return {t:'Publicação da sua aposentadoria no Diário Oficial',x:sd+', '+prNome(nm)+'!\n\nAqui é do Núcleo Regional de Educação de Londrina, informamos que foi publicado '+base+' o ato referente ao seu processo de aposentadoria'+ep+lk+'\n\nO afastamento das funções ocorre a partir do dia seguinte à publicação, procure a escola para as orientações'};
   if(d==='prc')return {t:'Publicação da aposentadoria de '+nm+' no Diário Oficial',x:sd+', '+prNome(c.procNome)+'!\n\nAqui é do Núcleo Regional de Educação de Londrina, como procurador(a) de '+nm+' comunicamos que foi publicado '+base+' o ato referente ao processo de aposentadoria'+ep+lk+'\n\nO afastamento das funções ocorre a partir do dia seguinte à publicação'};
   return {t:'Publicação de aposentadoria no Diário Oficial: '+nm,x:'Prezados, comunicamos que foi publicado '+base+' o ato de aposentadoria do(a) servidor(a) '+nm+ep+lk+'\n\nSolicitamos as providências de afastamento a partir do dia seguinte à publicação'}}
@@ -1134,7 +1152,7 @@ function corrOpen(c,rec){
 function openMail(rec,done){
   const contas=mailContas().filter(c=>c.svc&&c.tpl&&c.key&&mailOk(c.email));
   if(!contas.length){toast('Cadastre uma conta de e-mail em Configurações, aba E-mail');return}
-  const dg=digits(rec.cpf);const cd=cad[dg]||{};
+  const dg=digits(rec.cpf);const cd=cadOf(rec)||{};
   const prev=Object.values(ag).concat(Object.values(canc)).filter(x=>x&&digits(x.cpf)===dg&&x.email).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')))[0]||{};
   const ec=cd.escola?cd:prev;const sm=ec.escolaEmail||((schList().find(x=>x.n===ec.escola&&(!ec.escolaMun||x.m===ec.escolaMun))||{}).e)||'';
   const dest=[];[cd.email||prev.email,cd.email2||prev.email2,cd.procEmail||prev.procEmail,sm].forEach(x=>{x=String(x||'').trim();if(x&&!dest.some(d=>d.toLowerCase()===x.toLowerCase()))dest.push(x)});
@@ -1214,10 +1232,10 @@ function openAtd(id,pre){
   const np=nextProt();const hoje=iso(new Date());
   $('#modal').innerHTML=`<h3>${ed?'Atendimento '+esc(r.protocolo):'Registrar Atendimento'}</h3>
   <form id="afrm" autocomplete="off"><div class="f2">
-   <div><label>CPF * <button type="button" class="cpyb" data-cpy="a_cpf" title="Copiar somente os números" aria-label="Copiar somente os números">Copiar</button></label><input id="a_cpf" inputmode="numeric" value="${esc(r.cpf)}" placeholder="000.000.000-00" ${ed?'disabled':'required'}><div class="warn" id="a_wcpf"></div></div>
+   <div><label>CPF * <button type="button" class="cpyb" data-cpy="a_cpf" title="Copiar somente os números" aria-label="Copiar somente os números">Copiar</button></label><input id="a_cpf" inputmode="numeric" value="${esc(r.cpf)}" placeholder="${isLeg(r)?'Legado: informe quando tiver o CPF':'000.000.000-00'}" ${ed&&!isLeg(r)?'disabled':(ed?'':'required')}><div class="warn" id="a_wcpf"></div></div>
    <div><label>Nome</label><input id="a_nome" value="${esc(r.nome)}" style="text-transform:uppercase" autocapitalize="characters" placeholder="Preenchido pelo CPF"></div>
-   ${(()=>{const c0=cad[digits(r.cpf)]||{};return linhaBox('a',{linha:r.linha||c0.linha||'',linha2:r.linha2||c0.linha2||''},c0.cargo)})()}
-   <div class="full"><label>Escola / Colégio *</label><input id="a_esc" list="dl_aesc" value="${esc((()=>{const c0=cad[digits(r.cpf)]||{};const e=r.escola||c0.escola||'',m=r.escola?r.escolaMun:c0.escolaMun;return e?(m?e+' — '+m:e):''})())}" placeholder="Digite para buscar na lista"><datalist id="dl_aesc">${schList().map(x=>`<option value="${esc(schLabel(x))}">`).join('')}</datalist></div>
+   ${(()=>{const c0=cadOf(r)||{};return linhaBox('a',{linha:r.linha||c0.linha||'',linha2:r.linha2||c0.linha2||''},c0.cargo)})()}
+   <div class="full"><label>Escola / Colégio *</label><input id="a_esc" list="dl_aesc" value="${esc((()=>{const c0=cadOf(r)||{};const e=r.escola||c0.escola||'',m=r.escola?r.escolaMun:c0.escolaMun;return e?(m?e+' — '+m:e):''})())}" placeholder="Digite para buscar na lista"><datalist id="dl_aesc">${schList().map(x=>`<option value="${esc(schLabel(x))}">`).join('')}</datalist></div>
    <div class="full"><label>Serviço *</label><select id="a_serv" required><option value="">Selecione…</option>${(servList().includes(r.servico)||!r.servico?servList():servList().concat(r.servico)).map(x=>`<option ${x===r.servico?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
    <div class="full"><label>Processo e-protocolo</label><div style="display:flex;gap:8px"><input id="a_eprot" value="${esc(r.eprot?eprotFmt(r.eprot):'')}" inputmode="numeric" maxlength="12" placeholder="00.000.000-0"><button class="btn" type="button" id="a_eprotgo" style="white-space:nowrap" title="Abre a consulta pública do e-protocolo já com o número preenchido">Consultar no e-protocolo</button></div></div>
    <div><label>Número de protocolo</label><input id="a_prot" value="${esc(ed?r.protocolo:protFmt(np.seq,np.ano))}" disabled></div>
@@ -1281,8 +1299,9 @@ function openAtd(id,pre){
     }};
   cpf.oninput=()=>{cpf.value=maskCPF(cpf.value);fill()};
   $('#afrm').onsubmit=async e=>{e.preventDefault();
-    const cp=cpf.value.trim(),dg=digits(cp);
-    if(dg.length!==11||!cpfOk(cp)){toast('Informe um CPF válido');return}
+    const cp=cpf.value.trim(),dg=digits(cp);const leg=ed&&isLeg(atd[r.id]||r);
+    if(!(leg&&!dg)&&(dg.length!==11||!cpfOk(cp))){toast('Informe um CPF válido');return}
+    if(leg&&dg){const a0=atd[r.id]||r;if(!(await legMigra(a0.cadId||'',cp,null,r.id)))return}
     const nm=nome.value.trim().toLocaleUpperCase('pt-BR');if(!nm){toast('Informe o nome');return}
     const ev=$('#a_esc').value.trim();if(!ev){toast('Informe a escola / colégio');return}
     const ent=schList().find(x=>schLabel(x)===ev);const r0=atd[r.id]||r;const cc=cad[dg]||{};
@@ -1317,7 +1336,7 @@ function vCad(){
   ${rows?`<div class="tablewrap"><table><thead><tr><th>Nome</th><th>CPF</th><th>RG</th><th>Sexo</th><th>Cargo</th><th>Linha funcional</th><th>E-mail</th><th>Celular</th><th>Escola</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${l.length>300?`<p style="color:var(--mut);font-size:13px">Mostrando 300 de ${l.length}; refine a busca.</p>`:''}`:`<div class="empty" style="padding:18px 8px">${all.length?'Nenhum cadastro encontrado para a busca.':'Nenhum cadastro ainda. Clique em Novo cadastro.'}</div>`}</div>`;
 }
 function cadProtSec(id){
-  const l=atdList().filter(x=>digits(x.cpf)===digits(id)).sort((a,b)=>String(b.autuacao||'').localeCompare(String(a.autuacao||''))||(b.seq||0)-(a.seq||0));
+  const l=atdList().filter(x=>digits(id).length===11?digits(x.cpf)===digits(id):x.cadId===id).sort((a,b)=>String(b.autuacao||'').localeCompare(String(a.autuacao||''))||(b.seq||0)-(a.seq||0));
   return `<div style="margin-top:18px;border-top:1px solid var(--bd,#e3e6ea);padding-top:12px"><h4 style="margin:0 0 8px">Protocolo de atendimento <span class="tag" style="margin-left:6px">${l.length}</span></h4>${l.length?`<div class="tablewrap"><table><thead><tr><th>Data de abertura</th><th>Protocolo</th><th>Processo e-protocolo</th><th>Status atual</th></tr></thead><tbody>${l.map(x=>`<tr><td>${esc(atdDate(x.autuacao))}</td><td><a href="#" data-atdgo="${esc(x.id)}" title="Abrir o atendimento com toda a tramitação"><b>${esc(x.protocolo)}</b></a></td><td>${esc(x.eprot||'')}</td><td>${atdStTag(x)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Nenhum protocolo de atendimento vinculado a este cadastro.</div>'}</div>`;
 }
 /* histórico de agendamentos da pessoa (janela do Cadastro): agendado, atendido, cancelado, reagendado e não compareceu */
@@ -1339,7 +1358,7 @@ function openCad(id){
   const r=(id&&cad[id])||{};const ed=!!r.nome;const LU=window.__user||'';
   $('#modal').innerHTML=`<h3>${ed?'Editar cadastro':'Novo cadastro'}</h3>
   <form id="cfrm" autocomplete="off"><div class="f2">
-   <div><label>CPF * <button type="button" class="cpyb" data-cpy="c_cpf" title="Copiar somente os números" aria-label="Copiar somente os números">Copiar</button></label><input id="c_cpf" inputmode="numeric" value="${esc(r.cpf)}" placeholder="000.000.000-00" ${ed?'disabled':'required'}><div class="warn" id="c_wcpf"></div></div>
+   <div><label>CPF * <button type="button" class="cpyb" data-cpy="c_cpf" title="Copiar somente os números" aria-label="Copiar somente os números">Copiar</button></label><input id="c_cpf" inputmode="numeric" value="${esc(r.cpf)}" placeholder="${isLeg(r)?'Legado: informe quando tiver o CPF':'000.000.000-00'}" ${ed&&!isLeg(r)?'disabled':(ed?'':'required')}><div class="warn" id="c_wcpf"></div></div>
    <div><label>RG <button type="button" class="cpyb" data-cpy="c_rg" title="Copiar somente os números" aria-label="Copiar somente os números">Copiar</button></label><input id="c_rg" value="${esc(r.rg)}" placeholder="0.000.000-0" maxlength="11"></div>
    <div class="full"><label>Nome *</label><input id="c_nome" value="${esc((r.nome||'').toLocaleUpperCase('pt-BR'))}" style="text-transform:uppercase" autocapitalize="characters" required></div>
    <div class="full"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" id="c_proc" style="width:auto;margin:0"${r.proc?' checked':''}> Procurador</label></div>
@@ -1348,10 +1367,10 @@ function openCad(id){
    <div><label>Cargo</label><select id="c_cargo"><option value="">Selecione…</option>${(CARGOS.includes(r.cargo)||!r.cargo?CARGOS:CARGOS.concat(r.cargo)).map(x=>`<option ${x===r.cargo?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
    ${linhaBox('c',r,r.cargo)}
    ${discBox('c',r)}
-   <div class="full"><label>E-mail particular *</label><input id="c_email" type="email" value="${esc(r.email)}" required></div>
+   <div class="full"><label>E-mail particular *</label><input id="c_email" type="email" value="${esc(r.email)}" ${isLeg(r)?'':'required'}></div>
    <div class="full"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600"><input type="checkbox" id="c_e2on" style="width:auto;margin:0"${r.email2?' checked':''}> Adicionar e-mail</label></div>
    <div class="full" id="c_e2box" style="display:${r.email2?'block':'none'}"><label>E-mail adicional</label><input id="c_email2" type="email" value="${esc(r.email2||'')}" placeholder="Opcional"></div>
-   <div><label>Celular *</label><input id="c_cel" inputmode="tel" value="${esc(r.cel)}" placeholder="(43) 90000-0000" required></div>
+   <div><label>Celular *</label><input id="c_cel" inputmode="tel" value="${esc(r.cel)}" placeholder="(43) 90000-0000" ${isLeg(r)?'':'required'}></div>
    
    <div class="full"><label>Escola / Colégio *</label><input id="c_esc" list="dl_cesc" value="${esc(r.escola?(r.escolaMun?r.escola+' — '+r.escolaMun:r.escola):'')}" placeholder="Digite para buscar na lista"><datalist id="dl_cesc">${schList().map(x=>`<option value="${esc(schLabel(x))}">`).join('')}</datalist><div id="c_einfo" style="font-size:12.5px;color:var(--mut);margin-top:3px"></div></div>
   </div>
@@ -1367,13 +1386,14 @@ function openCad(id){
   $('#c_proc').onchange=()=>{$('#c_pbox').style.display=$('#c_proc').checked?'grid':'none';if($('#c_proc').checked)$('#c_pnome').focus()};
   $('#c_e2on').onchange=()=>{$('#c_e2box').style.display=$('#c_e2on').checked?'block':'none';if($('#c_e2on').checked)$('#c_email2').focus()};
   $('#cfrm').onsubmit=async e=>{e.preventDefault();
-    const cp=cpf.value.trim(),dg=digits(cp);
-    if(dg.length!==11||!cpfOk(cp)){toast('Informe um CPF válido');return}
+    const cp=cpf.value.trim(),dg=digits(cp);const leg=ed&&isLeg(r);
+    if(!(leg&&!dg)&&(dg.length!==11||!cpfOk(cp))){toast('Informe um CPF válido');return}
     if(!ed&&cad[dg]){toast('Este CPF já está cadastrado');closeModal();openCad(dg);return}
-    const rec={id:dg,cpf:cp,rg:$('#c_rg').value.trim(),nome:$('#c_nome').value.trim().toLocaleUpperCase('pt-BR'),sexo:$('#c_sexo').value,cargo:$('#c_cargo').value,linha:linhaDig($('#c_linha').value),linha2:$('#c_cargo').value==='QPM'?linhaDig($('#c_linha2').value):'',disciplina:$('#c_cargo').value==='QPM'?$('#c_disc').value:'',email:$('#c_email').value.trim(),email2:$('#c_e2on').checked?$('#c_email2').value.trim():'',cel:cel.value.trim(),criadoEm:r.criadoEm||nowStr(),por:r.por||LU};
+    const rec={id:(leg&&!dg)?r.id:dg,cpf:cp,rg:$('#c_rg').value.trim(),nome:$('#c_nome').value.trim().toLocaleUpperCase('pt-BR'),sexo:$('#c_sexo').value,cargo:$('#c_cargo').value,linha:linhaDig($('#c_linha').value),linha2:$('#c_cargo').value==='QPM'?linhaDig($('#c_linha2').value):'',disciplina:$('#c_cargo').value==='QPM'?$('#c_disc').value:'',email:$('#c_email').value.trim(),email2:$('#c_e2on').checked?$('#c_email2').value.trim():'',cel:cel.value.trim(),criadoEm:r.criadoEm||nowStr(),por:r.por||LU};
     if(ed)rec.atualizadoEm=nowStr();
+    if(leg&&!dg){rec.legado=true;if(r.origem)rec.origem=r.origem}
     if(rec.linha&&rec.linha===rec.linha2){toast('A segunda linha funcional deve ser diferente da primeira');return}
-    const falta=[['Nome',rec.nome],['E-mail particular',rec.email],['Celular',rec.cel]].filter(x=>!x[1]).map(x=>x[0]);if(falta.length){toast('Preencha os campos obrigatórios: '+falta.join(', '));return}
+    const falta=[['Nome',rec.nome],['E-mail particular',rec.email],['Celular',rec.cel]].filter(x=>!x[1]&&!(leg&&!dg&&x[0]!=='Nome')).map(x=>x[0]);if(falta.length){toast('Preencha os campos obrigatórios: '+falta.join(', '));return}
     if(rec.email2&&!/^\S+@\S+\.\S+$/.test(rec.email2)){toast('E-mail adicional inválido');return}
     rec.proc=$('#c_proc').checked;
     if(rec.proc){rec.procNome=$('#c_pnome').value.trim().toLocaleUpperCase('pt-BR');rec.procEmail=$('#c_pmail').value.trim();rec.procTel=$('#c_ptel').value.trim();
@@ -1384,8 +1404,9 @@ function openCad(id){
       if(ent){rec.escola=ent.n;rec.escolaMun=ent.m;rec.escolaEmail=ent.e}
       else if(r.escola&&(ev===r.escola||ev===r.escola+' — '+(r.escolaMun||''))){rec.escola=r.escola;rec.escolaMun=r.escolaMun||'';rec.escolaEmail=r.escolaEmail||''}
       else{toast('Escolha uma escola da lista (ou cadastre em Configurações)');return}
-    }else{toast('Informe a escola / colégio');return}
-    if(await save('cad',dg,rec)){closeModal();toast(ed?'Cadastro atualizado':'Cadastro incluído');await pfAplica(rec)}};
+    }else if(!(leg&&!dg)){toast('Informe a escola / colégio');return}
+    if(leg&&dg){if(await legMigra(r.id,cp,rec)){closeModal();toast('CPF informado · cadastro e atendimentos vinculados atualizados')}return}
+    if(await save('cad',rec.id,rec)){closeModal();toast(ed?'Cadastro atualizado':'Cadastro incluído');await pfAplica(rec)}};
   setTimeout(()=>{const f=ed?$('#c_nome'):cpf;if(f)f.focus()},50);
 }
 
