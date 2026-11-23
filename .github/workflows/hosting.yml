@@ -1,0 +1,29 @@
+name: Publicar no Firebase Hosting
+on:
+  push:
+    branches: [main]
+    paths: ["agenda.html", "anexo.html", "backup.html", "index.html", "logo.png", "firebase.json", ".github/workflows/hosting.yml"]
+  workflow_dispatch:
+concurrency:
+  group: hosting
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Monta a pasta publica
+        run: |
+          mkdir public
+          cp agenda.html anexo.html backup.html index.html logo.png public/
+      - name: Publica
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only hosting:agendanre --project nre-agenda --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"
