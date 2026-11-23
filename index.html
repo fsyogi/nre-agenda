@@ -485,7 +485,7 @@ function viewUsuarios() {
         const eu = r.uid === perfil.uid;
         return `<tr data-email="${esc(r.email)}" data-uid="${esc(r.uid || "")}">
           <td>${esc(r.nome || "—")}${eu ? ' <span class="suave">(você)</span>' : ""}</td>
-          <td>${esc((r.uid && logs.get(r.uid)) || r.usuario || "—")}</td>
+          <td>${(() => { const u = (r.uid && logs.get(r.uid)) || r.usuario || ""; if (u) return esc(u); if (eu) return `<div class="un-cel"><input data-acao="novo-usuario" autocapitalize="none" autocomplete="off" placeholder="ex.: fernandoyogi" aria-label="Definir meu usuário" style="min-width:130px"><button class="btn" data-acao="salvar-usuario">Criar</button></div>`; return "—"; })()}</td>
           <td>${esc(r.email)}</td>
           <td><select data-acao="perfil" ${eu ? "disabled" : ""} aria-label="Perfil de ${esc(r.email)}">
             ${Object.entries(PERFIS).map(([k, v]) => `<option value="${k}" ${k === r.perfil ? "selected" : ""}>${v}</option>`).join("")}</select></td>
@@ -548,6 +548,18 @@ function viewUsuarios() {
   });
 
   tabela.addEventListener("click", async (ev) => {
+    const bu = ev.target.closest("button[data-acao=salvar-usuario]");
+    if (bu) {
+      const usu = bu.closest("td").querySelector("input[data-acao=novo-usuario]").value.trim().toLowerCase();
+      if (!/^[a-z0-9._-]{3,30}$/.test(usu)) return aviso(msgL, "erro", "Usuário inválido. Use de 3 a 30 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.");
+      bu.disabled = true;
+      try {
+        if ((await getDoc(doc(db, "logins", usu))).exists()) { bu.disabled = false; return aviso(msgL, "erro", "Este nome de usuário já está em uso. Escolha outro."); }
+        await setDoc(doc(db, "logins", usu), { email: perfil.email, uid: perfil.uid, unidade: UNIDADES.includes(perfil.unidade || "") ? (perfil.unidade || "") : "" });
+        aviso(msgL, "ok", "Usuário criado: " + usu + ". Agora você pode entrar com ele ou com o e-mail.");
+      } catch (e) { console.error(e); bu.disabled = false; aviso(msgL, "erro", msgErro(e)); }
+      return;
+    }
     const bs = ev.target.closest("button[data-acao=salvar-unidade]");
     if (bs) {
       const tr = bs.closest("tr"); const email = tr.dataset.email, uid = tr.dataset.uid;
