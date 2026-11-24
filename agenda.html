@@ -673,7 +673,7 @@ function retomarAtd(p){
   const l=atdsDaPessoa(p);
   const w=document.createElement('div');w.className='modalbg on';w.style.zIndex=40;w.style.alignItems='center';
   const lin=l.map(({x,nome})=>`<tr><td style="white-space:nowrap">${esc(atdDate(x.autuacao))}</td><td><b>${esc(x.protocolo)}</b>${x.eprot?`<div style="color:var(--mut);font-size:12px">${esc(x.eprot)}</div>`:''}${nome?'<div style="color:var(--mut);font-size:12px">vínculo pelo nome</div>':''}</td><td>${esc(x.servico||'')}</td><td>${atdStTag(x)}</td><td><button class="btn pri sm" type="button" data-abrir="${esc(x.id)}">Abrir</button></td></tr>`).join('');
-  w.innerHTML=`<div class="modal" role="dialog" aria-modal="true" style="max-width:760px"><h3 style="margin-top:0">Retomar atendimento</h3><p style="margin:0 0 10px;color:var(--mut);font-size:14px">${esc(p.nome||'')} · ${l.length?l.length+' atendimento(s) já aberto(s)':'nenhum atendimento aberto'}</p>${l.length?`<div class="tablewrap"><table><thead><tr><th>Data da autuação</th><th>Atendimento</th><th>Serviço</th><th>Status</th><th></th></tr></thead><tbody>${lin}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Esta pessoa ainda não tem atendimento aberto. Use o botão Novo atendimento.</div>'}<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" data-fechar="1">Fechar</button></div></div>`;
+  w.innerHTML=`<div class="modal" role="dialog" aria-modal="true" style="max-width:760px"><h3 style="margin-top:0">Retomar atendimento</h3><p style="margin:0 0 10px;color:var(--mut);font-size:14px">${esc(p.nome||'')} · ${l.length?l.length+' atendimento(s) já aberto(s)':'nenhum atendimento aberto'}</p>${ajudaHtml(['Lista os atendimentos já abertos desta pessoa, do mais recente ao mais antigo','Abrir leva ao atendimento escolhido, para dar continuidade à tramitação','Para começar um processo novo, use Novo atendimento na janela do agendamento'])}${l.length?`<div class="tablewrap"><table><thead><tr><th>Data da autuação</th><th>Atendimento</th><th>Serviço</th><th>Status</th><th></th></tr></thead><tbody>${lin}</tbody></table></div>`:'<div class="empty" style="padding:10px 4px">Esta pessoa ainda não tem atendimento aberto. Use o botão Novo atendimento.</div>'}<div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" type="button" data-fechar="1">Fechar</button></div></div>`;
   const end=()=>{w.remove();document.removeEventListener('keydown',kk,true)};
   const kk=e=>{if(e.key==='Escape'){e.stopPropagation();end()}};
   document.addEventListener('keydown',kk,true);
@@ -681,6 +681,22 @@ function retomarAtd(p){
   document.body.appendChild(w);
 }
 
+/* resumo em tópicos no topo de cada janela de trabalho: o que será feito ali */
+const AJUDA=[
+ [/^(Editar agendamento|Novo agendamento)/,['Confira ou preencha os dados da pessoa: CPF, nome, contatos e escola','Informe serviço, status e observação do agendamento','Salvar grava o agendamento e atualiza o cadastro da pessoa','Novo atendimento abre um atendimento com estes dados; Retomar atendimento lista os já abertos']],
+ [/^Cancelar agendamento/,['Informe quem cancelou e o motivo','O horário volta a ficar livre na agenda','O registro vai para a lista de cancelados, de onde pode ser reagendado']],
+ [/^(Incluir novo horário|Editar horário)/,['Escolha o horário e o atendente','O horário vale só para este dia e não muda o padrão da agenda','Remover horário tira o horário do dia, com confirmação']],
+ [/^Registrar conferência do Diário Oficial/,['Informe a data e o número da edição conferida','Marque o resultado de cada nome conferido','Os que constarem são encerrados e entram na comunicação','Salvar conferência grava no histórico do Diário Oficial']],
+ [/^(Atendimento |Registrar Atendimento)/,['Dados da pessoa e do processo: CPF, escola, serviço e e-protocolo','Cada andamento incluído entra na tramitação, com data, unidade e resumo','Consultar no e-protocolo abre a consulta pública do processo','Imprimir Movimentação Detalhada gera o histórico completo']],
+ [/^(Editar cadastro|Novo cadastro)/,['Dados da pessoa e, se houver, do procurador','O CPF identifica o cadastro','Salvar atualiza o cadastro usado nos agendamentos e atendimentos']],
+ [/^Reagendar atendimento/,['Escolha a nova data e o novo horário','Confirmar cria o novo agendamento e marca o anterior como reagendado']]
+];
+const ajudaHtml=l=>`<div class="aj" style="margin:10px 0 12px;padding:9px 12px;border-radius:9px;background:#eef3f6;color:#3d5560;font-size:13px;line-height:1.45"><b style="color:#03313d">O que será feito aqui</b><ul style="margin:4px 0 0;padding-left:18px">${l.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+function ajudaJanela(){const m=document.getElementById('modal');if(!m||m.querySelector('.aj'))return;const h=m.querySelector('h3');if(!h)return;
+  const t=h.textContent.trim();const it=AJUDA.find(a=>a[0].test(t));if(!it)return;
+  const alvo=(h.parentElement&&h.parentElement!==m&&h.parentElement.tagName==='DIV'&&h.parentElement.parentElement===m)?h.parentElement:h;
+  alvo.insertAdjacentHTML('afterend',ajudaHtml(it[1]))}
+(function(){const ini=()=>{const m=document.getElementById('modal');if(m)new MutationObserver(ajudaJanela).observe(m,{childList:true})};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ini);else ini()})();
 function openSlot(id){
   const s=slotInfo(id);const r=ag[id]||{};const LU=window.__user||'';
   if(s.blk&&!ag[id]){toast(s.blk.feriado?'Horário sem atendimento: '+s.blk.t+(s.blk.o?' – '+s.blk.o:''):'Horário bloqueado: '+s.blk.t+' de '+attName(s.att));return}
