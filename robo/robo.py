@@ -255,13 +255,17 @@ def main():
         mudou = cid not in confs
         for it in itens:
             m = it["monit"]
-            if m.get("estado", "and") not in ("res", "conf"): continue
+            # o Diario Oficial so e consultado quando o e-Protocolo informa que aguarda a emissao da resolucao
+            if m.get("estado", "and") != "res": continue
             desde = m.get("resolucaoEm") or ""
             if desde and di < desde: continue
             if it["id"] in feitos: continue
             r = procura(it, e)
             if r is None: status["doeOk"] = False; continue
             tipo, pag, lk, ok = r
+            # sem certeza (nome ou e-protocolo nao conferem por completo) nada e gravado: nem andamento, nem situacao, nem conferencia
+            if tipo == "confirmar":
+                print(" ed %s item %s: possivel, sem certeza -> nada gravado (pag %s)" % (di, it["id"][:6], pag)); continue
             print(" ed %s item %s: %s%s" % (di, it["id"][:6], tipo, (" pag %s" % pag) if pag else ""))
             conf["itens"].append({"id": it["id"], "nome": it["nome"], "eprot": it["eprot"], "r": "c" if tipo in ("consta", "confirmar") else "n",
                                   "pg": ("%s e %s" % (pag, pag + 1)) if pag else "", "lk": lk, "auto": tipo})
