@@ -182,6 +182,25 @@ def main():
         itens = []
         for x in filter(None, os.environ.get("TESTE_EPROT", "").split(";")):
             itens.append({"id": "T" + x, "eprot": x.strip(), "nome": "", "monit": {"estado": "res", "resolucaoEm": os.environ.get("TESTE_DESDE", "")}})
+    # limpeza: "possivel publicacao a confirmar" gravada pelo robo sem certeza deve sair do sistema (volta a "resolucao a emitir")
+    if db:
+        try:
+            for d in db.collection("agenda_atd").stream():
+                r = d.to_dict() or {}; m = dict(r.get("monit") or {})
+                if m.get("estado") != "conf" or not m.get("pend"): continue
+                and_ = [a for a in (r.get("and") or []) if not (a.get("rb") and "Possível publicação" in str(a.get("ds", "")))]
+                m["estado"] = "res"; m.pop("pend", None)
+                db.collection("agenda_atd").document(d.id).update({"and": and_, "monit": m})
+                log_robo(db, "Alteração", "Atendimento", d.id[:8] + " · " + str(r.get("nome", "")), "Removida possível publicação sem certeza; situação voltou a Resolução a emitir")
+                print(" removida possivel publicacao sem certeza:", d.id)
+            for c in db.collection("agenda_conf").stream():
+                cj = c.to_dict() or {}; mud = False
+                for i in cj.get("itens", []):
+                    if i.get("auto") == "confirmar" and cj.get("orig") == "robo":
+                        i.update({"r": "n", "auto": "nao", "pg": "", "lk": ""}); mud = True
+                if mud: db.collection("agenda_conf").document(c.id).set(cj)
+        except Exception as e:
+            print("limpeza falhou:", e)
     status["monitorados"] = len(itens)
     print("monitorados:", len(itens), "| modo:", status["modo"])
 
