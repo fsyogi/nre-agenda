@@ -176,7 +176,8 @@ def main():
             r = d.to_dict() or {}
             m = r.get("monit") or {}
             if r.get("servico") in MON_SERV and str(r.get("eprot", "")).strip() and m.get("estado", "and") != "pub":
-                itens.append({"id": d.id, "eprot": r["eprot"].strip(), "nome": r.get("nome", ""), "monit": m})
+                tem = any("e-Protocolo:" in str(a.get("ds", "")) and "emitir resolu" in str(a.get("ds", "")).lower() for a in (r.get("and") or []))
+                itens.append({"id": d.id, "eprot": r["eprot"].strip(), "nome": r.get("nome", ""), "monit": m, "temRes": tem})
     else:
         itens = []
         for x in filter(None, os.environ.get("TESTE_EPROT", "").split(";")):
@@ -206,6 +207,9 @@ def main():
         if res and novo_est == "and":
             novo_est = "res"
             if not ands: ands = ["e-Protocolo: %s, de %s para %s, motivo %s" % (res["data"][:10], res["de"], res["para"], res["motivo"])]
+        # restaura o andamento de "emitir resolucao" quando a situacao ja esta em resolucao a emitir e o registro nao existe
+        if res and novo_est == "res" and not ands and not it.get("temRes", True):
+            ands = ["e-Protocolo: %s, de %s para %s, motivo %s" % (res["data"][:10], res["de"], res["para"], res["motivo"])]
         if not ands and novo_est == m.get("estado", "and") and ult["seq"] == vistos: continue
         ref = db.collection("agenda_atd").document(it["id"])
         def aplicar(tx):
@@ -214,6 +218,7 @@ def main():
             if mm.get("estado") == "pub": return
             and_ = list(r.get("and") or [])
             for t in ands:
+                if any(str(a.get("ds", "")) == t for a in and_): continue
                 and_.append({"dt": nowstr(), "un": "", "us": NOME_ROBO, "ds": t, "tp": "", "rb": 1})
             mm["eprotSeq"] = ult["seq"]; mm["eprotEm"] = nowstr()
             if novo_est != mm.get("estado", "and"):
